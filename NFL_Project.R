@@ -75,8 +75,12 @@ grep("[0-9]+", basic_stats$Experience[1:100], value = TRUE)
 
 #Histogram for basic_stats$Experience
 hist(basic_stats$Experience[basic_stats$Experience < 5], xlab = "Experience", main = "Player Experience")
-ggplot(filter(basic_stats, Experience < 5), aes(x = Experience)) + geom_bar(fill = "#377EB8")
-ggplot(filter(basic_stats, Experience < 5), aes(x = Experience)) + geom_histogram(fill = "#377EB8", binwidth = 0.5)
+ggplot(filter(basic_stats, Experience < 5), aes(x = Experience)) + 
+  geom_bar(fill = "#377EB8")
+
+ggplot(filter(basic_stats, Experience < 5), aes(x = Experience)) + 
+  geom_histogram(fill = "#377EB8", binwidth = 0.5) +
+  labs(title = "Player Experience")
 
 
 hist(basic_stats$Experience, xlab = "Experience", main = "Player Experience", breaks = c(0:26 -.01))
@@ -146,7 +150,7 @@ teams05
 #Team Stats
 team_stats(8,2016,"MFB",by="Season")
 team_stats(796,2016,"MFB",by="SEASON")
-team_stats(697,2016,"MBB",by="SEASON")
+team_stats(697,2016,"MFB",by="SEASON")
 
 ts_list <- list() 
 for (a in 2014:2018) {
@@ -170,7 +174,7 @@ for (a in 2014:2018) {
 player_stats(732, 2014, "MFB", by="Season")
 player_stats(703, 2014, "MFB", by="Season")
 #Assign player stats from Texas year 2014 to texas14
-texas14 <- player_stats(703, 2015, "MFB", by="Season")
+texas15 <- player_stats(703, 2015, "MFB", by="Season")
 texas14 <- player_stats(703, 2014, "MFB", by="Season")
 
 #get all data from collegeballR and put in a list of lists called ps_list
@@ -313,7 +317,11 @@ ggplot(basic_stats) +
   geom_smooth() +
   labs(x = "Year", y = "Weight in Lbs")
 
-
+ggplot(basic_stats) +
+  aes(x = as.numeric(start_year), y = Height..inches.) +
+  geom_point() +
+  geom_smooth() +
+  labs(x = "Year", y = "Height in Lbs")
 
 #Density Plot
 ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +

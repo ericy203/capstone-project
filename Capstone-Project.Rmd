@@ -1,0 +1,281 @@
+---
+title: "NFL_Project"
+author: "Eric Young"
+date: "2/23/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Predicting the Longevity of NFL Players
+
+The goal of this project is to predict the length of a NFL players career. I will use data that is known about the player coming into the NFL and exclude data about the players performance throughout the seasons they played in the NFL. The success criteria will be based on 3 years, meaning if a player plays 3 years in the NFL they were succesful to draft for the team otherwise they were unsuccessful. I have based the 3 year mark on current length of contract terms set by the NFL which are 3 years for undrafted players and 4 years for drafted. 
+
+I will start the prediction from the beginning of their rookie season from the point at which they are drafted and thus will not be using any performance data. 
+
+--There are three groups to consider 1. Go professional 1a last 3 years 1b don't las 3 years, 2. Don' go professional -- category years for those who go professional and N/A for those who don't
+
+### Potential Clients
+
+The client for this project would be the NFL, the teams, players, and agents. The information provided could help the NFL change the length of base contracts and reasses base pay for players. It would provide information to the teams for how long a player will last and analyze how much they should pay in signing bonuses. It would inform players and agents for how much of a signing bonus they should push for. 
+
+#### Source of data
+
+There are two data sets which I will be using for this capstone project. The first source dataset is from Kaggle and is named [NFL Statistics](https://www.kaggle.com/kendallgillies/nflstatistics). The second source comes from GitHub a package created by Meyappan called [collegeballR](https://github.com/meysubb/collegeballR).
+
+When trying to tie team_stats to the data frame I found a bug in the team_stats.R where it was not looking up sport and giving an error. I had to fork the original dataset into [my repository](https://github.com/ericy203/collegeballR/) and edit the code. 
+
+The original size of the basic_stats data frame is 17,172 rows and 17 columns. Since the data from the collegeballR package is only available from 2014 - 2018 I will only be covering those years in the two data sets.
+--because of collegeballR package we can only use from 2014 -2018 data.
+
+The variables I will use to predict are:
+
+* Age
+* Birth Place
+* College - massage it into something else. What about college could influence how well you do in the NFL
+PAC12- BIG 10, D1, D2, small college re classify into 5 - 10. 
+Another way to do it is change college to rank. According to year. If you could pull the ranks from their senior year. Quantitative instead of categorical. 
+* Position
+* Initial Team
+* Height
+* Weight
+* BMI 
+--focus only on the subset which we have rushing data for
+--Wins and losses from team need to add from team stats
+
+--further along on the analysis 
+
+--more teams in college than professional
+--NFL players from which colleges
+--basic infromation we know but display it for a well rounded report
+#Found bug in code and had to change it
+merge team stats on to original data set
+finish up basic plots 
+start analysis 
+install git on R
+
+#### Deliverables
+
+The deliverables for this project will be the R markdown and the output of the markdown as a PDF. I chose this as the deliverable since the R markdown can have the code but the PDF doesn't need to have the code visible with the writen explanation of the analysis and prediction.
+
+
+
+#####Libraries used
+
+Below are the libraries which I will be using in the capstone project. The collegeballR package is from GitHub and you will need to use devtools to install it.
+
+```{r echo = FALSE}
+library(devtools)
+library(readr) 
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(xtable)
+library(collegeballR)
+```
+
+Set the working directory and read in the Basic Stats file
+
+```{r}
+basic_stats <- read.csv("nflstatistics/Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
+```
+
+--Clean the two data sets in different sections
+###Clean Basic Stats (NFL Data)
+
+Let's check the data and basic information on basic_stats
+-xtable turn summary into a table
+```{r}
+xtable(summary(basic_stats))
+```
+
+Check for "" in the Experience column
+```{r}
+basic_stats$Experience[basic_stats$Experience==""] <- NA
+```
+
+seperate Years.Played into two columns so we can calculate experience and replace the ""
+```{r}
+basic_stats <- separate(basic_stats, Years.Played, c("start_year", "end_year"), sep = "-")
+```
+
+create a difference of end_year and start_year
+```{r}
+year_difference <- (as.numeric(basic_stats$end_year) - as.numeric(basic_stats$start_year))
+```
+
+calculate experience for "" and replace
+```{r}
+basic_stats$Experience[is.na(basic_stats$Experience)]<- year_difference[is.na(basic_stats$Experience)]
+```
+
+Converting Experience variable into number of seasons
+creating a vector named v
+```{r}
+v <- basic_stats$Experience
+```
+
+Change rookie to 0 
+```{r}
+v[grepl("[rR]ookie", basic_stats$Experience)] <- "0"
+```
+
+Strip all values except for digites from the string
+```{r}
+v <- gsub("[^0-9]", "", v)
+```
+
+Assign integers to basic_stats$Experience from v
+```{r}
+basic_stats$Experience <- as.integer(v)
+```
+
+
+####Basic Statistics for NFL data
+
+Look at the average career for a player 
+```{r}
+mean(basic_stats$Experience, na.rm = TRUE)
+```
+
+
+
+
+###Clean collegeballR
+
+Assign the team mapping for 20014 to a variable
+this assigns the teams and the codes to a variable where we can use it to get information from player_stats.
+```{r}
+teams14 <- team_mapping(2014, "MFB")
+```
+
+We can check the data for players on a single team with the below code.
+```{r}
+texas14 <- player_stats(703, 2014, "MFB", by="Season")
+```
+
+Now that we see there is player data for the teams we can run the below code to get all teams data into a list of lists.
+```{r, eval=FALSE}
+ps_list <- list() 
+for (y in 2014:2018) {
+  current_season_tm <- team_mapping(y, "MFB")
+ps_list[[y]] <- list()
+for (i in current_season_tm$team_id) {
+try(ps_list[[y]][[i]] <- player_stats(as.numeric(i), y, "MFB", by="Season"))
+}
+}
+```
+
+The below code will assign the data from the list of lists to a data frame and we will then be able to access the the data.
+```{r, eval=FALSE}
+collegedf <- data.frame()
+for (y in 2014:2018) {
+  for (i in names(ps_list[[y]])) {
+    df <- ps_list[[y]][[i]]
+    df$season <- y
+    collegedf <- rbind(collegedf, df)
+  }
+}
+```
+
+We need to add team name to the data frame. At this point all we have is team id.
+```{r, eval=FALSE}
+collegedf2 <- collegedf %>%
+  mutate(team_id = as.character(team_id)) %>%
+  inner_join(teams14, by=c("team_id" = "team_id"))
+```
+
+Drop year.x and year.y
+```{r}
+collegedf2 <- select(collegedf2, -c(year.x, year.y))
+```
+
+Export collegedf2 data frame to csv file
+```{r}
+write.csv(collegedf2, "ncaa_football_stats.csv")
+```
+
+##NFL Plots
+The below chart shows the mean weight of football players has increased from 1920 to 2018.
+```{r}
+ggplot(basic_stats) +
+  aes(x = as.numeric(start_year), y = Weight..lbs.) +
+  geom_point() +
+  geom_smooth() +
+  labs(x = "Year", y = "Weight in Lbs")
+```
+
+This chart shows the average height in the NFL hit its peak in the 1970s and is close to the same today.
+```{r}
+ggplot(basic_stats) +
+  aes(x = as.numeric(start_year), y = Height..inches.) +
+  geom_point() +
+  geom_smooth() +
+  labs(x = "Year", y = "Height in Lbs")
+```
+
+The density plot below shows the different in height between all of the NFL teams.
+```{r}
+ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
+         geom_density() +
+  facet_wrap(~Current.Team) +
+  guides(fill = "none") +
+  labs(x = "Height in Inches")
+```
+
+The density plot below shows each year of experience with line plots displaying the distribution of height.
+```{r}
+ggplot(subset(basic_stats, Experience <= 20), aes(Height..inches., fill = Experience)) +
+  geom_density() +
+  facet_wrap(~Experience) +
+  guides(fill = "none") +
+  labs(x = "Height in Inches")
+```
+
+The plot below shows tthe average years of experience for each NFL team.
+```{r}
+ggplot(basic_stats, aes(Current.Team, Experience)) +
+  geom_boxplot() +
+  labs(x = "NFL Teams", y = "Years of Experience")
+```
+
+
+##Collegeball R Plots
+This bar plot shows the distribution of players by year and season. From the plot we 
+```{r}
+ggplot(collegedf2, aes(season, fill = Yr, group = Yr)) +
+  geom_bar(position = "dodge")
+```
+
+The below chart shows by the number of attempts how many yards are lost. The natural thought would be the more rushing attempts a player has the more likely they are to lose yardage. To an extent this is true. However we see in the scatter plot that this isn't exactly true. We can see players who have rushed nearly 400 times and have only lost around 50 yards. Then there is another group who have rushed far less times but have lost a lot more yardage.
+```{r}
+ggplot(collegedf2, aes(`Rush Attempts`, `Rush YdsLost`)) +
+  geom_point()
+```
+
+The below chart shows by year how many players plaid each position
+```{r}
+ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
+  geom_bar(position = "dodge")
+```
+
+Player by position
+```{r}
+ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
+  geom_bar(position = "dodge")
+```
+
+Players
+```{r}
+ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) + geom_bar()
+
+ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
+  geom_bar() +
+  coord_cartesian(ylim=c(2,7))
+```
+
+--Include high level statistics and aggregate data not raw data
