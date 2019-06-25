@@ -199,6 +199,9 @@ for (y in 2014:2018) {
   }
 }
 
+#Write collegdf to csv
+write.csv(collegedf, file = "college_data.csv")
+
 #Add team name
 collegedf2 <- collegedf %>%
   mutate(team_id = as.character(team_id)) %>%
@@ -308,7 +311,6 @@ basic_stats %>%
   View()
 
 
-library(ggplot2)
 
 #plot of are player bigger now than before
 ggplot(basic_stats) +
@@ -319,10 +321,10 @@ ggplot(basic_stats) +
 
 ggplot(basic_stats) +
   aes(x = as.numeric(start_year), y = Height..inches.) +
-  geom_point() +
+  geom_jitter(alpha = .5) +
   geom_smooth() +
   labs(x = "Year", y = "Height in Lbs")
-
+#maybe try boxplot
 #Density Plot
 ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
          geom_density() +
@@ -330,7 +332,7 @@ ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
   guides(fill = "none") +
   labs(x = "Height in Inches")
       
-#
+#change to a scatter or boxplot
 ggplot(subset(basic_stats, Experience <= 20), aes(Height..inches., fill = Experience)) +
   geom_density() +
   facet_wrap(~Experience) +

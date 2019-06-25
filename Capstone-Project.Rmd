@@ -3,8 +3,8 @@ title: "NFL_Project"
 author: "Eric Young"
 date: "2/23/2018"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -181,9 +181,14 @@ for (y in 2014:2018) {
   }
 }
 ```
+We need to import the collegedf data created from the above two queries.
+```{r}
+collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
+```
+
 
 We need to add team name to the data frame. At this point all we have is team id.
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 collegedf2 <- collegedf %>%
   mutate(team_id = as.character(team_id)) %>%
   inner_join(teams14, by=c("team_id" = "team_id"))
@@ -236,7 +241,7 @@ ggplot(subset(basic_stats, Experience <= 20), aes(Height..inches., fill = Experi
   labs(x = "Height in Inches")
 ```
 
-The plot below shows tthe average years of experience for each NFL team.
+The plot below shows the average years of experience for each NFL team.
 ```{r}
 ggplot(basic_stats, aes(Current.Team, Experience)) +
   geom_boxplot() +
@@ -253,29 +258,44 @@ ggplot(collegedf2, aes(season, fill = Yr, group = Yr)) +
 
 The below chart shows by the number of attempts how many yards are lost. The natural thought would be the more rushing attempts a player has the more likely they are to lose yardage. To an extent this is true. However we see in the scatter plot that this isn't exactly true. We can see players who have rushed nearly 400 times and have only lost around 50 yards. Then there is another group who have rushed far less times but have lost a lot more yardage.
 ```{r}
-ggplot(collegedf2, aes(`Rush Attempts`, `Rush YdsLost`)) +
+ggplot(collegedf2, aes(x = `Rush.Attempts`, y = `Rush.YdsLost`)) +
   geom_point()
 ```
 
 The below chart shows by year how many players plaid each position
 ```{r}
 ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
-  geom_bar(position = "dodge")
+  geom_bar(position = "dodge") +
+  coord_flip()
 ```
 
 Player by position
 ```{r}
 ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
-  geom_bar(position = "dodge")
+  geom_bar(position = "dodge") +
+  coord_flip()
+```
+Define college_teams variable
+```{r}
+college_teams <- inner_join(collegedf2, basic_stats, by = c("team_name" = "College", "Player" = "Name")) 
 ```
 
 Players
-```{r}
-ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) + geom_bar()
+```{r, fig.height= 10}
+ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) + 
+  geom_bar() +
+  coord_flip() +
+  theme(axis.text=element_text(size=20),
+        axis.title=element_text(size=24,face="bold"))
+```
 
+```{r, fig.height=10}
 ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
   geom_bar() +
-  coord_cartesian(ylim=c(2,7))
+  coord_cartesian(ylim=c(2,7)) +
+  coord_flip() +
+  theme(axis.text=element_text(size=20),
+        axis.title=element_text(size=24,face="bold"))
 ```
 
 --Include high level statistics and aggregate data not raw data
