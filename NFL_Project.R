@@ -4,26 +4,11 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(caTools)
+library(ROCR)
+library(collegeballR)
 setwd("~/Documents/School/Springboard/Project/nflstatistics")
 basic_stats <- read.csv("Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
-cs_defensive <- read.csv("Career_Stats_Defensive.csv", stringsAsFactors = FALSE)
-cs_fg_kickers <- read.csv("Career_Stats_Field_Goal_Kickers.csv", stringsAsFactors = FALSE)
-cs_fumbles <- read.csv("Career_Stats_Fumbles.csv", stringsAsFactors = FALSE)
-cs_kreturn <- read.csv("Career_Stats_Kick_Return.csv", stringsAsFactors = FALSE)
-cs_kickoff <- read.csv("Career_Stats_Kickoff.csv", stringsAsFactors = FALSE)
-cs_ol <- read.csv("Career_Stats_Offensive_Line.csv", stringsAsFactors = FALSE)
-cs_passing <- read.csv("Career_Stats_Passing.csv", stringsAsFactors = FALSE)
-cs_preturn <- read.csv("Career_Stats_Punt_Return.csv", stringsAsFactors = FALSE)
-cs_punting <- read.csv("Career_Stats_Punting.csv", stringsAsFactors = FALSE)
-cs_receiving <- read.csv("Career_Stats_Receiving.csv", stringsAsFactors = FALSE)
-cs_rushing <- read.csv("Career_Stats_Rushing.csv", stringsAsFactors = FALSE)
-gl_dl <- read.csv("Game_Logs_Defensive_Lineman.csv", stringsAsFactors = FALSE)
-gl_k <- read.csv("Game_Logs_Kickers.csv", stringsAsFactors = FALSE)
-gl_ol <- read.csv("Game_Logs_Offensive_Line.csv", stringsAsFactors = FALSE)
-gl_p <- read.csv("Game_Logs_Punters.csv", stringsAsFactors = FALSE)
-gl_qb <- read.csv("Game_Logs_Quarterback.csv", stringsAsFactors = FALSE)
-gl_rb <- read.csv("Game_Logs_Runningback.csv", stringsAsFactors = FALSE)
-gl_wr_te <- read.csv("Game_Logs_Wide_Receiver_and_Tight_End.csv", stringsAsFactors = FALSE)
 
 
 View(basic_stats)
@@ -116,12 +101,6 @@ dim(basic_stats_me2)
 
 unique(basic_stats$Experience)
 
-View(basic_stats %>%
-  select(Name, Player.Id, Position))
-
-View(basic_stats %>%
-       select(Name, College, start_year) %>%
-       filter(start_year >= 2014))
 
 #It seems the CollegeballR package only has players statistics from 2014 and forward.
 #This shows there are only 304 players who meet this criteria.
@@ -133,42 +112,19 @@ basic_stats %>%
   select(Name, College, start_year) %>%
   filter(start_year > 2006, College == "Texas")
 
-#Try to tie in collegeballR rpackage 
-library(collegeballR)
+#start working on collegeballR rpackage 
+
 
 #Assign the team mapping for 2009 to variable
 #this just shows the teams and the codes you need to use to get information from player_stats
-teams09 <- team_mapping(2009, "MFB")
-teams09
 teams14 <- team_mapping(2014, "MFB")
 str(teams14)
 teams14
-
-teams05 <- team_mapping(2005, "MFB")
-teams05
 
 #Team Stats
 team_stats(8,2016,"MFB",by="Season")
 team_stats(796,2016,"MFB",by="SEASON")
 team_stats(697,2016,"MFB",by="SEASON")
-
-ts_list <- list() 
-for (a in 2014:2018) {
-  current_season_tm <- team_mapping(a, "MFB")
-  ts_list[[a]] <- list()
-  for (i in current_season_tm$team_id) {
-    try(ts_list[[a]][[i]] <- team_stats(as.numeric(i), a, "MFB", by="season"))
-  }
-}
-
-teamdf <- data.frame()
-for (a in 2014:2018) {
-  for (i in names(ts_list[[a]])) {
-    ts_df <- ts_list[[a]][[i]]
-    ts_df$season <- a
-    teamdf <- rbind(teamdf, ts_df)
-  }
-}
 
 #Player Stats 
 player_stats(732, 2014, "MFB", by="Season")
@@ -179,7 +135,7 @@ texas14 <- player_stats(703, 2014, "MFB", by="Season")
 
 #get all data from collegeballR and put in a list of lists called ps_list
 ps_list <- list() 
-for (y in 2014:2018) {
+for (y in 2014:2017) {
   current_season_tm <- team_mapping(y, "MFB")
 ps_list[[y]] <- list()
 for (i in current_season_tm$team_id) {
@@ -191,7 +147,7 @@ print(i)
 #ps_list[[year]][[team_id]]
 
 collegedf <- data.frame()
-for (y in 2014:2018) {
+for (y in 2014:2017) {
   for (i in names(ps_list[[y]])) {
     df <- ps_list[[y]][[i]]
     df$season <- y
@@ -199,61 +155,139 @@ for (y in 2014:2018) {
   }
 }
 
-#Write collegdf to csv
-write.csv(collegedf, file = "college_data.csv")
+
 
 #Add team name
-collegedf2 <- collegedf %>%
+collegedf <- collegedf %>%
   mutate(team_id = as.character(team_id)) %>%
   inner_join(teams14, by=c("team_id" = "team_id"))
 
 #Drop year.x and year.y
-collegedf2 <- select(collegedf2, -c(year.x, year.y))
-
+collegedf <- select(collegedf, -c(year.x, year.y))
+#Drop N/A years from collegedf
+collegedf <- subset(collegedf, collegedf$Yr != "N/A")
+collegedf$Yr <- droplevels(collegedf$Yr)
 #Check to make sure season still has all years
-summary(collegedf2)
+summary(collegedf)
 
 #number of quarterbacks
-collegedf2 %>%
+collegedf %>%
   filter(Pos == "QB")
 
-collegedf2 %>%
+collegedf %>%
   filter(Pos == "RUSH")
 
-collegedf2 %>%
+collegedf %>%
   filter(Player == "Allen, Kyle")
 
 #change position for Allen, Kyle to QB from RUSH
-collegedf2[collegedf2$Pos == "RUSH", "Pos"] <- "QB"
+collegedf[collegedf$Pos == "RUSH", "Pos"] <- "QB"
 #Change Yr from N/A to Fr
-collegedf2[collegedf2$Yr == "N/A" & collegedf2$Player == "Allen, Kyle", "Yr"] <- "Fr"
+collegedf[collegedf$Yr == "N/A" & collegedf$Player == "Allen, Kyle", "Yr"] <- "Fr"
+collegedf[collegedf$Pos == "OL" & collegedf$Player == "Reynolds, Micajah", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "OL" & collegedf$Player == "Rowell, Shaq", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "OL" & collegedf$Player == "King, C.", "Pos"] <- "DL"
+
+str(collegedf)
+
+collegedf %>%
+  filter(Pos == "")
+
+collegedf[collegedf$Pos == "WILL", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "WIL", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "WLB", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "SAM", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "Z", "Pos"] <- "WR"
+collegedf[collegedf$Pos == "SS", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "S", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "FS", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "RT", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "RG", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "NT", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "NG", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "END", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "DT", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "DE", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "LT", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "LG", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "ILB", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "FB", "Pos"] <- "RB"
+collegedf[collegedf$Pos == "CB", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "C", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "BUCK", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "BS", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "BC", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "B", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Pierce, Jordan", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Rushing, Devin", "Pos"] <- "RB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Wharton, Donnie", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Linn, Hayes", "Pos"] <- "DB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Clinton-Earl, Aaron", "Pos"] <- "RB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Uzo-Okereke, Ar", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Onyechi, Jacob", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Dunn, Brett", "Pos"] <- "K"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Deeks, Lochlin", "Pos"] <- "DL"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Davis, Pate", "Pos"] <- "QB"
+
+collegedf %>%
+  filter(Player == "Deeks, Lochlin")
+collegedf %>%
+  filter(Player == "Davis, Pate")
+
+
+#Write collegdf to csv
+write.csv(collegedf, file = "college_data.csv")
+
+#Create Data Frame so we can predict who gets drafted and who does not
+basic_stats$copyofname <- basic_stats$Name
+str(basic_stats)
+college_draft <- left_join(collegedf, basic_stats, by = c("team_name" = "College", "Player" = "Name"))
+college_draft
+str(college_draft)
+
+college_draft$was_drafted <- !is.na(college_draft$copyofname)
+str(college_draft)
+
+names(college_draft) <- make.names(names(college_draft))
+
+#remove comma from Rush.YdsGained
+college_draft[["Rush.YdsGained"]] <- as.numeric(gsub(",", "", college_draft[["Rush.YdsGained"]]))
+college_draft[["Rush.Net.Yards"]] <- as.numeric(gsub(",", "", college_draft[["Rush.Net.Yards"]]))
+#Change GP and GS to numeric
+college_draft$GP <- as.numeric(college_draft$GP)
+college_draft$GS <- as.numeric(college_draft$GS)
+#Define a new variable Games Not Started GNS
+college_draft$GNS <- (college_draft$GP - college_draft$GS)
+
+#Drop "" from position
+college_draft <- subset(college_draft, Pos != "")
+
+
 
 #ave() function to update/change
-first_season <- ave(collegedf2$season, collegedf2$Player, FUN=min)
+first_season <- ave(collegedf$season, collegedf$Player, FUN=min)
 #To see where data sits on the years
-table(collegedf2$season - first_season)
+table(collegedf$season - first_season)
 #Compare student Year to number of records
-table(collegedf2$Yr)
+table(collegedf$Yr)
 
-ggplot(collegedf2, aes(Yr, fill = season, group = season)) + 
-  geom_bar(position = "dodge")
 #Bar plot of season by year
-ggplot(collegedf2, aes(season, fill = Yr, group = Yr)) +
+ggplot(collegedf, aes(season, fill = Yr, group = Yr)) +
   geom_bar(position = "dodge")
 
 #
-ggplot(collegedf2, aes(`Rush Attempts`, `Rush YdsLost`)) +
+ggplot(collegedf, aes(`Rush Attempts`, `Rush YdsLost`)) +
   geom_point()
 
 #Player by position
-ggplot(collegedf2, aes(Pos, fill = season, group = season)) +
+ggplot(collegedf, aes(Pos, fill = season, group = season)) +
   geom_bar(position = "dodge")
 
-ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
+ggplot(collegedf, aes(Pos, fill = Yr, group = Yr)) +
   geom_bar(position = "dodge")
 
 #Players from which colleges in the NFL
-college_teams <- inner_join(collegedf2, basic_stats, by = c("team_name" = "College", "Player" = "Name")) 
+college_teams <- inner_join(collegedf, basic_stats, by = c("team_name" = "College", "Player" = "Name")) 
 
 college_teams
 str(college_teams)
@@ -269,31 +303,31 @@ ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
 
 
 #Change the reference group to RB. We need to make sure we are referencing the proper position to get the correct results.
-collegedf2$Pos <- relevel(as.factor(collegedf2$Pos), ref = "RB")
+collegedf$Pos <- relevel(as.factor(collegedf$Pos), ref = "RB")
 #Linear regression on position and attempts
-rushmodel <- lm(`Rush Attempts` ~ Pos, data=collegedf2)
+rushmodel <- lm(`Rush Attempts` ~ Pos, data=collegedf)
 
 #Find by subsets or back joins why there is a large jump from  Freshman 2014 to So 2015 year
-collegeFrSo <- inner_join(filter(collegedf2, Yr == "Fr"), filter(collegedf2, Yr == "So"), by = "Player")
+collegeFrSo <- inner_join(filter(collegedf, Yr == "Fr"), filter(collegedf, Yr == "So"), by = "Player")
 
 #Put the Yr in specific order 
-View(collegedf2)
-collegedf2$Yr <- factor(collegedf2$Yr, levels = c("Fr","So","Jr","Sr","N/A"))
+View(collegedf)
+collegedf$Yr <- factor(collegedf$Yr, levels = c("Fr","So","Jr","Sr","N/A"))
 
 #make some plots and tables, summary statistics and start filling in the write up.
-summary(collegedf2)
-str(collegedf2)
-dim(collegedf2)
+summary(collegedf)
+str(collegedf)
+dim(collegedf)
 
 
-play_pos <- table(collegedf2$Pos)
+play_pos <- table(collegedf$Pos)
 play_pos
 
 #table how many are in each year and N/A
-missing_yr <- table(collegedf2$Yr)
+missing_yr <- table(collegedf$Yr)
 missing_yr
 
-collegedf2 %>%
+collegedf %>%
   filter(Yr == "N/A")
 
 
@@ -344,4 +378,125 @@ ggplot(basic_stats, aes(Current.Team, Experience)) +
   geom_boxplot() +
   labs(x = "NFL Teams", y = "Years of Experience")
 
-dnorm()
+ #Linear Model
+nfl_model <- lm(Experience ~ College, data = basic_stats)
+summary(nfl_model)
+nfl_model$residuals
+SSE <- sum(nfl_model$residuals^2)
+SSE
+
+nfl_model2 <- lm(Experience ~ College + Weight..lbs., data = basic_stats)
+summary(nfl_model2)
+nfl_model2$residuals
+SSE2 <- sum(nfl_model2$residuals^2)
+SSE2
+
+nfl_model3 <- lm(Experience ~ Height..inches. + Weight..lbs., data = basic_stats)
+summary(nfl_model3)
+nfl_model3$residuals
+SSE3 <- sum(nfl_model3$residuals^2)
+SSE3
+
+
+
+
+#Linear Model for drafting
+draft1 <- lm(was_drafted ~ poly(Height..inches., 2) + Weight..lbs., data = na.omit(college_draft[c("Height..inches.", "Weight..lbs.", "was_drafted")]))
+summary(draft1)
+
+table(college_draft$was_drafted)
+
+draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush.YdsGained, data = college_draft)
+summary(draft2)
+#Discuss why there are differences in the drafting rates for the positions
+ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
+
+
+#Logistic Regression
+set.seed(122)
+split <- sample.split(college_draft$was_drafted, SplitRatio = 0.75)
+split
+
+#create training set
+college_draftTrain <- subset(college_draft, split == TRUE)
+nrow(college_draftTrain)
+
+#Run the model on Train
+#the subset has all colleges where at least one player was drafted
+college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_drafted, college_draftTrain$team_name, FUN=sum) > 0)
+#Build the Logistic Regression Model
+college_draftLog <- glm(was_drafted ~ GP + Pos + Yr + team_name, family = binomial(), college_draftTrain)
+summary(college_draftLog)
+#Check why LS only has values for 2018
+subset(college_draft, college_draft$Pos == "LS" & season == 2017)
+#Build prediction of college_draftLog
+predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
+summary(predict_college_draftTrain)
+#To get the fn, fp, tn, tp
+table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
+#average predicted probabilities
+tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
+#Precision and recall
+#Accuracy
+(9887 + 1616)/(9887 + 4862 + 447 + 1616)
+#ROC Curve
+ROCRpred_Train <- prediction
+
+#create testing set
+college_draftTest <- subset(college_draft, split == FALSE)
+college_draftTest <- subset(college_draftTest, college_draftTest$team_name %in% college_draftTrain$team_name)
+nrow(college_draftTest)
+#Test prediction on Test data set
+predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response" )
+summary(predict_Test)
+table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
+#Accuracy
+(3479 + 544)/(3479 + 1593 + 144 + 544)
+#ROC Curve
+ROCRpred_Test <- prediction(predict_Test, college_draftTest$was_drafted)
+ROCRperf_Test <- performance(ROCRpred_Test, "tpr", "fpr")
+plot(ROCRperf_Test)
+
+
+
+#Logistic Regression 2
+#create training set
+college_draftTrain2 <- subset(college_draft, split == TRUE)
+nrow(college_draftTrain2)
+
+#Run the model on Train2
+#the subset has all colleges where at least one player was drafted
+college_draftTrain2 <- subset(college_draftTrain2, ave(college_draftTrain2$was_drafted, college_draftTrain2$team_name, FUN=sum) > 0)
+#Build the Logistic Regression Model
+college_draftLog2 <- glm(was_drafted ~ Pos + GP + GS + season + team_name, family = binomial(), college_draftTrain2)
+summary(college_draftLog2)
+#Build prediction of college_draftLog2
+predict_college_draftTrain2 <- predict(college_draftLog2, newdata = college_draftTrain2, type = "response")
+summary(predict_college_draftTrain2)
+#Get the fn, fp, tn, tp
+table(college_draftTrain2$was_drafted, predict_college_draftTrain2 > mean(college_draftTrain2$was_drafted))
+#average predicted probabilities
+tapply(predict_college_draftTrain2, college_draftTrain2$was_drafted,  FUN=mean)
+#Accuracy
+(11291 + 1651)/(11291 + 3456 + 412 + 1651)
+
+#create testing set
+college_draftTest2 <- subset(college_draft, split == FALSE)
+nrow(college_draftTest2)
+#the subset has all colleges where at least one player was drafted in test
+college_draftTest2 <- subset(college_draftTest2, ave(college_draftTest2$was_drafted, college_draftTest2$team_name, FUN=sum) > 0)
+#Build test prediction of college_draftTestLog
+predict_cdTest2 <- predict(college_draftLog2, newdata = college_draftTest2, type = "response")
+summary(predict_cdTest2)
+#To get the fn, fp, tn, tp
+table(college_draftTest2$was_drafted, predict_cdTest2 > mean(college_draftTest2$was_drafted))
+#average predicted probabilities on Test
+tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean)
+#Accuracy
+(3811 + 558)/(3811 + 1181 + 130 + 558)
+#ROC Curve
+ROCRpred_Test2 <- prediction(predict_cdTest2, college_draftTest2$was_drafted)
+ROCRperf_Test2 <- performance(ROCRpred_Test2, "tpr", "fpr")
+plot(ROCRperf_Test2)
+#See if we can stack plots from first test and second test
+

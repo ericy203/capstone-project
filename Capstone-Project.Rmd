@@ -76,6 +76,10 @@ library(tidyr)
 library(ggplot2)
 library(xtable)
 library(collegeballR)
+library(knitr)
+library(kableExtra)
+library(ROCR)
+library(caTools)
 ```
 
 Set the working directory and read in the Basic Stats file
@@ -189,23 +193,23 @@ collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, strings
 
 We need to add team name to the data frame. At this point all we have is team id.
 ```{r, eval=TRUE}
-collegedf2 <- collegedf %>%
+collegedf <- collegedf %>%
   mutate(team_id = as.character(team_id)) %>%
   inner_join(teams14, by=c("team_id" = "team_id"))
 ```
 
 Drop year.x and year.y
 ```{r}
-collegedf2 <- select(collegedf2, -c(year.x, year.y))
+collegedf <- select(collegedf, -c(year.x, year.y))
 ```
 
-Export collegedf2 data frame to csv file
+Export collegedf data frame to csv file
 ```{r}
-write.csv(collegedf2, "ncaa_football_stats.csv")
+write.csv(collegedf, "ncaa_football_stats.csv")
 ```
 
 ##NFL Plots
-The below chart shows the mean weight of football players has increased from 1920 to 2018.
+One question that may be asked while reviewing NFL player data is are the players bigger now than they were when the NFL started. In the chart below we see that players now weigh aproximately 60 to 70 lbs more than in the 1920's. From 1920 to around 2000 there was a steady increase in the weight of the players. Since 200 the average weight of players has stayed about the same. The below chart shows the mean weight of football players has increased from 1920 to 2018.
 ```{r}
 ggplot(basic_stats) +
   aes(x = as.numeric(start_year), y = Weight..lbs.) +
@@ -214,7 +218,9 @@ ggplot(basic_stats) +
   labs(x = "Year", y = "Weight in Lbs")
 ```
 
-This chart shows the average height in the NFL hit its peak in the 1970s and is close to the same today.
+Another question that may be asked is are player taller today then they were when the NFL started. The answer is yes, the average height in 1920 was about 70 inches and dramatically increased until about 1970 where players are an average height of 74 inches. This chart shows the average height in the NFL hit its peak in the 1970s and is close to the same today.
+
+What is interesting about the chart below is all of the plots are evely placed and staggered. The reason for this is when a team records the height of a player they don't measue in quarter or half of an inch they will round up to the nearest inch.
 ```{r}
 ggplot(basic_stats) +
   aes(x = as.numeric(start_year), y = Height..inches.) +
@@ -223,7 +229,7 @@ ggplot(basic_stats) +
   labs(x = "Year", y = "Height in Lbs")
 ```
 
-The density plot below shows the different in height between all of the NFL teams.
+The density plot below shows the different in height between all of the NFL teams. From the plots below it shows the most common height is around 75 inches. Players who are drafted and play in the NFL are usually between 70 and 77 inches in height.
 ```{r}
 ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
          geom_density() +
@@ -232,70 +238,54 @@ ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
   labs(x = "Height in Inches")
 ```
 
-The density plot below shows each year of experience with line plots displaying the distribution of height.
-```{r}
-ggplot(subset(basic_stats, Experience <= 20), aes(Height..inches., fill = Experience)) +
-  geom_density() +
-  facet_wrap(~Experience) +
-  guides(fill = "none") +
-  labs(x = "Height in Inches")
-```
-
-The plot below shows the average years of experience for each NFL team.
+The plot below shows the average years of experience for each NFL team. For many of the teams the first qusrtile is 0 meaning 1 in 4 players are rookies.
 ```{r}
 ggplot(basic_stats, aes(Current.Team, Experience)) +
   geom_boxplot() +
-  labs(x = "NFL Teams", y = "Years of Experience")
+  labs(x = "NFL Teams", y = "Years of Experience") +
+  coord_flip()
 ```
 
 
 ##Collegeball R Plots
-This bar plot shows the distribution of players by year and season. From the plot we 
+This bar plot shows the distribution of players by year, season and the progression of players from Freshman, Sophmore, Junior, and Senior by year. The amount of players progressing from one year to the next is never the same for any of the years. Senior year is always lower than the previous Junior year. This could be because of players moving into the NFL before completeing their Senior year. The increase of players in the Sophmore and Junior years could be caused by players transferring from Junior Colleges. 
 ```{r}
-ggplot(collegedf2, aes(season, fill = Yr, group = Yr)) +
+ggplot(collegedf, aes(season, fill = Yr, group = Yr)) +
   geom_bar(position = "dodge")
 ```
 
 The below chart shows by the number of attempts how many yards are lost. The natural thought would be the more rushing attempts a player has the more likely they are to lose yardage. To an extent this is true. However we see in the scatter plot that this isn't exactly true. We can see players who have rushed nearly 400 times and have only lost around 50 yards. Then there is another group who have rushed far less times but have lost a lot more yardage.
 ```{r}
-ggplot(collegedf2, aes(x = `Rush.Attempts`, y = `Rush.YdsLost`)) +
+ggplot(collegedf, aes(x = `Rush Attempts`, y = `Rush YdsLost`)) +
   geom_point()
 ```
 
 The below chart shows by year how many players plaid each position
 ```{r}
-ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
+ggplot(collegedf, aes(Pos, fill = Yr, group = Yr)) +
   geom_bar(position = "dodge") +
   coord_flip()
 ```
 
 Player by position
 ```{r}
-ggplot(collegedf2, aes(Pos, fill = Yr, group = Yr)) +
+ggplot(collegedf, aes(Pos, fill = Yr, group = Yr)) +
   geom_bar(position = "dodge") +
   coord_flip()
 ```
-Define college_teams variable
+Define college_teams data frame 
 ```{r}
-college_teams <- inner_join(collegedf2, basic_stats, by = c("team_name" = "College", "Player" = "Name")) 
+college_teams <- inner_join(collegedf, basic_stats, by = c("team_name" = "College", "Player" = "Name")) 
 ```
 
-Players
-```{r, fig.height= 10}
-ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) + 
-  geom_bar() +
-  coord_flip() +
-  theme(axis.text=element_text(size=20),
-        axis.title=element_text(size=24,face="bold"))
-```
-
+The below chart shows us the colleges which have at least one or more players drafted into the NFL from 2014 onwards. The two teams with the highest number of drafted players are Michigan and Stanford tied with 7 players drafted into the NFL. This chart can give us an idea of which schools consistently send players to the NFL and can even give us an idea of how competitive they are in the NCAA. The idea to the last notion is the more players which are drafted would mean the teams have more highly skilled players which in turn could mean the team was more competitive.
 ```{r, fig.height=10}
 ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
   geom_bar() +
   coord_cartesian(ylim=c(2,7)) +
   coord_flip() +
-  theme(axis.text=element_text(size=20),
-        axis.title=element_text(size=24,face="bold"))
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=20,face="bold"))
 ```
 
 --Include high level statistics and aggregate data not raw data
