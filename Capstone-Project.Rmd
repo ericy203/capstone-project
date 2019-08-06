@@ -79,6 +79,7 @@ library(collegeballR)
 library(knitr)
 library(kableExtra)
 library(ROCR)
+library(pROC)
 library(caTools)
 ```
 
@@ -87,6 +88,18 @@ Set the working directory and read in the Basic Stats file
 ```{r}
 basic_stats <- read.csv("nflstatistics/Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
 ```
+
+##CollegeballR Import
+We need to import the collegedf data created from the above two queries.
+```{r}
+collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
+```
+
+##College_draft import
+```{r}
+college_draft <- read.csv("./nflstatistics/college_draft.csv")
+```
+
 
 --Clean the two data sets in different sections
 ###Clean Basic Stats (NFL Data)
@@ -146,67 +159,29 @@ Look at the average career for a player
 mean(basic_stats$Experience, na.rm = TRUE)
 ```
 
+#Clean College Ball R
+The CollegeBallR package was a data set found on Github but we had many issues using this data set. So we had to pull the data directly from the NCAA website and create our own data frame. The data frame had the below issues which needed to be fixed.
+1. Pull all combinations for each team and season from the NCAA website.
+2. Dropped all players which didn't have a position
+ - The players didn't have a position because they didn't play that season.
+3. Dropped all years that were N/A
+4. Relabled positions and statndardized them.
+ - For example WILL is a type of Line Backer so I relabled them as LB
+5. Created csv to be be used later in the project.
 
 
 
-###Clean collegeballR
+#Create and Clean College_draft
+To create the data frame College_draft I did a left join on the NCAA and NFL data frames.
+By creating this data frame we were able to analyze how many players were drafted from college into the NFL and from which teams. However, there were some data problems that I needed to fix which I will list below.
 
-Assign the team mapping for 20014 to a variable
-this assigns the teams and the codes to a variable where we can use it to get information from player_stats.
-```{r}
-teams14 <- team_mapping(2014, "MFB")
-```
-
-We can check the data for players on a single team with the below code.
-```{r}
-texas14 <- player_stats(703, 2014, "MFB", by="Season")
-```
-
-Now that we see there is player data for the teams we can run the below code to get all teams data into a list of lists.
-```{r, eval=FALSE}
-ps_list <- list() 
-for (y in 2014:2018) {
-  current_season_tm <- team_mapping(y, "MFB")
-ps_list[[y]] <- list()
-for (i in current_season_tm$team_id) {
-try(ps_list[[y]][[i]] <- player_stats(as.numeric(i), y, "MFB", by="Season"))
-}
-}
-```
-
-The below code will assign the data from the list of lists to a data frame and we will then be able to access the the data.
-```{r, eval=FALSE}
-collegedf <- data.frame()
-for (y in 2014:2018) {
-  for (i in names(ps_list[[y]])) {
-    df <- ps_list[[y]][[i]]
-    df$season <- y
-    collegedf <- rbind(collegedf, df)
-  }
-}
-```
-We need to import the collegedf data created from the above two queries.
-```{r}
-collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
-```
-
-
-We need to add team name to the data frame. At this point all we have is team id.
-```{r, eval=TRUE}
-collegedf <- collegedf %>%
-  mutate(team_id = as.character(team_id)) %>%
-  inner_join(teams14, by=c("team_id" = "team_id"))
-```
-
-Drop year.x and year.y
-```{r}
-collegedf <- select(collegedf, -c(year.x, year.y))
-```
-
-Export collegedf data frame to csv file
-```{r}
-write.csv(collegedf, "ncaa_football_stats.csv")
-```
+1. Create logical variable of TRUE or FALSE if the player was drafted into the NFL.
+2. Sanitized the column names and stripped out invalid characters.
+3. Remove comma from rushing yards variables.
+4. Change games played and games started variables to numeric.
+5. Created a new variable games not started.
+6. Dropped all NULL positions from the data set.
+7. Created a cleaned version of the csv to be be used later in the project.
 
 ##NFL Plots
 One question that may be asked while reviewing NFL player data is are the players bigger now than they were when the NFL started. In the chart below we see that players now weigh aproximately 60 to 70 lbs more than in the 1920's. From 1920 to around 2000 there was a steady increase in the weight of the players. Since 200 the average weight of players has stayed about the same. The below chart shows the mean weight of football players has increased from 1920 to 2018.
@@ -221,7 +196,7 @@ ggplot(basic_stats) +
 Another question that may be asked is are player taller today then they were when the NFL started. The answer is yes, the average height in 1920 was about 70 inches and dramatically increased until about 1970 where players are an average height of 74 inches. This chart shows the average height in the NFL hit its peak in the 1970s and is close to the same today.
 
 What is interesting about the chart below is all of the plots are evely placed and staggered. The reason for this is when a team records the height of a player they don't measue in quarter or half of an inch they will round up to the nearest inch.
-```{r}
+```{r, warning=FALSE, message=FALSE}
 ggplot(basic_stats) +
   aes(x = as.numeric(start_year), y = Height..inches.) +
   geom_point() +
@@ -230,7 +205,7 @@ ggplot(basic_stats) +
 ```
 
 The density plot below shows the different in height between all of the NFL teams. From the plots below it shows the most common height is around 75 inches. Players who are drafted and play in the NFL are usually between 70 and 77 inches in height.
-```{r}
+```{r, warning=FALSE}
 ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
          geom_density() +
   facet_wrap(~Current.Team) +
@@ -238,7 +213,7 @@ ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
   labs(x = "Height in Inches")
 ```
 
-The plot below shows the average years of experience for each NFL team. For many of the teams the first qusrtile is 0 meaning 1 in 4 players are rookies.
+The plot below shows the average years of experience for each NFL team. For many of the teams the first quartile is 0 meaning 1 in 4 players are rookies.
 ```{r}
 ggplot(basic_stats, aes(Current.Team, Experience)) +
   geom_boxplot() +
@@ -255,30 +230,28 @@ ggplot(collegedf, aes(season, fill = Yr, group = Yr)) +
 ```
 
 The below chart shows by the number of attempts how many yards are lost. The natural thought would be the more rushing attempts a player has the more likely they are to lose yardage. To an extent this is true. However we see in the scatter plot that this isn't exactly true. We can see players who have rushed nearly 400 times and have only lost around 50 yards. Then there is another group who have rushed far less times but have lost a lot more yardage.
-```{r}
-ggplot(collegedf, aes(x = `Rush Attempts`, y = `Rush YdsLost`)) +
+```{r, warning=FALSE}
+ggplot(collegedf, aes(x = `Rush.Attempts`, y = `Rush.YdsLost`)) +
   geom_point()
 ```
 
-The below chart shows by year how many players plaid each position
+The below chart shows by year how many players played each position and displays them by year. We can see that there is variation for every position from year to year. It is not uncommon for a player to switch positions, for example a wide receiver may switch to a Defensive Back from one year to the next. Another senario is a player transfers from a junior college to a university and that will cause a difference in count from one year to the next. Players may also leave for the NFL draft after their Junior year and this can cause a drop in the number of players for the positions. Another thing we can look at is some positions like Punter and Kicker have far fewer players in these positions than Defensive Back or Offensive Lineman. These positions only require a few players per team as there is only one slot on the field for them and they are less likely to get injured. Where as Defensive Backs and Offensive Linemen take up multiple spots on a field and are far more likely to get injured.
 ```{r}
 ggplot(collegedf, aes(Pos, fill = Yr, group = Yr)) +
   geom_bar(position = "dodge") +
   coord_flip()
 ```
 
-Player by position
-```{r}
-ggplot(collegedf, aes(Pos, fill = Yr, group = Yr)) +
-  geom_bar(position = "dodge") +
-  coord_flip()
-```
 Define college_teams data frame 
 ```{r}
 college_teams <- inner_join(collegedf, basic_stats, by = c("team_name" = "College", "Player" = "Name")) 
 ```
 
-The below chart shows us the colleges which have at least one or more players drafted into the NFL from 2014 onwards. The two teams with the highest number of drafted players are Michigan and Stanford tied with 7 players drafted into the NFL. This chart can give us an idea of which schools consistently send players to the NFL and can even give us an idea of how competitive they are in the NCAA. The idea to the last notion is the more players which are drafted would mean the teams have more highly skilled players which in turn could mean the team was more competitive.
+The below chart shows us the colleges which have at least one or more players drafted into the NFL from 2014 onwards. The two teams with the highest number of drafted players are Michigan and Stanford tied with 7 players drafted into the NFL. This chart can give us an idea of which schools consistently send players to the NFL and can even give us an idea of how competitive they are in the NCAA. The idea to the last notion is the more players which are drafted would mean the teams have more highly skilled players which in turn could mean the team was more competitive. The toal number of players drafted between 2014 and 2017 is 2735.
+```{r, eval=FALSE}
+table(college_draft$was_drafted)
+```
+
 ```{r, fig.height=10}
 ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
   geom_bar() +
@@ -289,3 +262,229 @@ ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
 ```
 
 --Include high level statistics and aggregate data not raw data
+
+#Linear and Logistic Regression
+ #Linear Model for experience
+```{r}
+nfl_model <- lm(Experience ~ College, data = basic_stats)
+```
+
+
+```{r}
+SSE <- sum(nfl_model$residuals^2)
+SSE
+```
+
+
+Plot of nfl_model
+```{r}
+plot(nfl_model)
+```
+
+
+```{r}
+nfl_model2 <- lm(Experience ~ College + Weight..lbs., data = basic_stats)
+```
+
+
+```{r}
+SSE2 <- sum(nfl_model2$residuals^2)
+SSE2
+```
+
+
+```{r}
+nfl_model3 <- lm(Experience ~ Height..inches. + Weight..lbs., data = basic_stats)
+```
+
+
+```{r}
+SSE3 <- sum(nfl_model3$residuals^2)
+SSE3
+```
+
+
+#Linear Model for drafting
+```{r}
+draft1 <- lm(was_drafted ~ poly(Height..inches., 2) + Weight..lbs., data = na.omit(college_draft[c("Height..inches.", "Weight..lbs.", "was_drafted")]))
+summary(draft1)
+```
+
+
+```{r}
+draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush.YdsGained, data = college_draft)
+summary(draft2)
+```
+
+#Discuss why there are differences in the drafting rates for the positions
+```{r}
+ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
+```
+
+
+
+#Logistic Regression
+```{r}
+set.seed(122)
+split <- sample.split(college_draft$was_drafted, SplitRatio = 0.75)
+```
+
+
+#create training set
+```{r}
+college_draftTrain <- subset(college_draft, split == TRUE)
+nrow(college_draftTrain)
+```
+
+#Run the model on Train
+#the subset has all colleges where at least one player was drafted
+```{r}
+college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_drafted, college_draftTrain$team_name, FUN=sum) > 0)
+```
+
+#Build the Logistic Regression Model
+```{r}
+college_draftLog <- glm(was_drafted ~ GP + Pos + Yr + team_name, family = binomial(), college_draftTrain)
+```
+
+#Check why LS only has values for 2018
+```{r}
+subset(college_draft, college_draft$Pos == "LS" & season == 2017)
+```
+
+#Build prediction of college_draftLog
+```{r}
+predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
+summary(predict_college_draftTrain)
+```
+
+#To get the fn, fp, tn, tp
+```{r}
+table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
+```
+
+#average predicted probabilities
+```{r}
+tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
+```
+#Precision and recall
+#Accuracy
+```{r}
+(9887 + 1616)/(9887 + 4862 + 447 + 1616)
+```
+#ROC Curve
+```{r}
+ROCRpred_Train <- prediction
+```
+
+#create testing set
+```{r}
+college_draftTest <- subset(college_draft, split == FALSE)
+college_draftTest <- subset(college_draftTest, college_draftTest$team_name %in% college_draftTrain$team_name)
+nrow(college_draftTest)
+```
+
+#Test prediction on Test data set
+```{r}
+predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response" )
+summary(predict_Test)
+table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
+```
+
+#Accuracy
+```{r}
+(3479 + 544)/(3479 + 1593 + 144 + 544)
+```
+
+#ROC Curve
+```{r}
+ROCRpred_Test <- prediction(predict_Test, college_draftTest$was_drafted)
+ROCRperf_Test <- performance(ROCRpred_Test, "tpr", "fpr")
+plot(ROCRperf_Test)
+```
+
+
+#Logistic Regression 2
+#create training set
+```{r}
+college_draftTrain2 <- subset(college_draft, split == TRUE)
+nrow(college_draftTrain2)
+```
+
+#Run the model on Train2
+#the subset has all colleges where at least one player was drafted
+```{r}
+college_draftTrain2 <- subset(college_draftTrain2, ave(college_draftTrain2$was_drafted, college_draftTrain2$team_name, FUN=sum) > 0)
+```
+
+#Build the Logistic Regression Model
+```{r}
+college_draftLog2 <- glm(was_drafted ~ Pos + GP + GS + season + team_name, family = binomial(), college_draftTrain2)
+summary(college_draftLog2)
+```
+
+#Build prediction of college_draftLog2
+```{r}
+predict_college_draftTrain2 <- predict(college_draftLog2, newdata = college_draftTrain2, type = "response")
+summary(predict_college_draftTrain2)
+```
+
+#Get the fn, fp, tn, tp
+```{r}
+table(college_draftTrain2$was_drafted, predict_college_draftTrain2 > mean(college_draftTrain2$was_drafted))
+```
+
+#average predicted probabilities
+```{r}
+tapply(predict_college_draftTrain2, college_draftTrain2$was_drafted,  FUN=mean)
+```
+
+#Accuracy
+```{r}
+(11291 + 1651)/(11291 + 3456 + 412 + 1651)
+```
+
+#create testing set
+```{r}
+college_draftTest2 <- subset(college_draft, split == FALSE)
+nrow(college_draftTest2)
+```
+
+#the subset has all colleges where at least one player was drafted in test
+```{r}
+college_draftTest2 <- subset(college_draftTest2, ave(college_draftTest2$was_drafted, college_draftTest2$team_name, FUN=sum) > 0)
+```
+
+#Build test prediction of college_draftTestLog
+```{r}
+predict_cdTest2 <- predict(college_draftLog2, newdata = college_draftTest2, type = "response")
+summary(predict_cdTest2)
+```
+
+#To get the fn, fp, tn, tp
+```{r}
+table(college_draftTest2$was_drafted, predict_cdTest2 > mean(college_draftTest2$was_drafted))
+```
+
+#average predicted probabilities on Test
+```{r}
+tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean)
+```
+
+#Accuracy
+```{r}
+(3811 + 558)/(3811 + 1181 + 130 + 558)
+```
+
+#ROC Curve
+```{r}
+ROCRpred_Test2 <- prediction(predict_cdTest2, college_draftTest2$was_drafted)
+ROCRperf_Test2 <- performance(ROCRpred_Test2, "tpr", "fpr")
+plot(ROCRperf_Test2)
+```
+#Trying to stack ROC plots
+```{r}
+plot(ROCRperf_Test, col = 552, lty = 1, main = "ROC")
+plot(ROCRperf_Test2, col = 24 , lty = 2, add = TRUE)
+```
+

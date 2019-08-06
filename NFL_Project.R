@@ -151,7 +151,7 @@ for (y in 2014:2017) {
   for (i in names(ps_list[[y]])) {
     df <- ps_list[[y]][[i]]
     df$season <- y
-    collegedf <- rbind(collegedf, df)
+    collegedf <- rbind(df)
   }
 }
 
@@ -167,6 +167,8 @@ collegedf <- select(collegedf, -c(year.x, year.y))
 #Drop N/A years from collegedf
 collegedf <- subset(collegedf, collegedf$Yr != "N/A")
 collegedf$Yr <- droplevels(collegedf$Yr)
+#Drop Position which is ""
+collegedf <- subset(collegedf, collegedf$Pos != "")
 #Check to make sure season still has all years
 summary(collegedf)
 
@@ -228,11 +230,15 @@ collegedf[collegedf$Pos == "" & collegedf$Player == "Onyechi, Jacob", "Pos"] <- 
 collegedf[collegedf$Pos == "" & collegedf$Player == "Dunn, Brett", "Pos"] <- "K"
 collegedf[collegedf$Pos == "" & collegedf$Player == "Deeks, Lochlin", "Pos"] <- "DL"
 collegedf[collegedf$Pos == "" & collegedf$Player == "Davis, Pate", "Pos"] <- "QB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Thomas, Toronto", "Pos"] <- "LB"
+collegedf[collegedf$Pos == "" & collegedf$Player == "McGowan, Benny", "Pos"] <- "OL"
+collegedf[collegedf$Pos == "" & collegedf$Player == "Williams, Phillip-Michael", "Pos"] <- "RB"
+
 
 collegedf %>%
-  filter(Player == "Deeks, Lochlin")
+  filter(Player == "Jackson, Obbie")
 collegedf %>%
-  filter(Player == "Davis, Pate")
+  filter(Player == "Miller, Odell")
 
 
 #Write collegdf to csv
@@ -262,7 +268,8 @@ college_draft$GNS <- (college_draft$GP - college_draft$GS)
 #Drop "" from position
 college_draft <- subset(college_draft, Pos != "")
 
-
+#Write collegdf to csv
+write.csv(college_draft, file = "college_draft.csv")
 
 #ave() function to update/change
 first_season <- ave(collegedf$season, collegedf$Player, FUN=min)
