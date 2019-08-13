@@ -1,7 +1,7 @@
 ---
 title: "NFL_Project"
 author: "Eric Young"
-date: "2/23/2018"
+date: "8/13/2019"
 output:
   pdf_document: default
   html_document: default
@@ -15,22 +15,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The goal of this project is to predict the length of a NFL players career. I will use data that is known about the player coming into the NFL and exclude data about the players performance throughout the seasons they played in the NFL. The success criteria will be based on 3 years, meaning if a player plays 3 years in the NFL they were succesful to draft for the team otherwise they were unsuccessful. I have based the 3 year mark on current length of contract terms set by the NFL which are 3 years for undrafted players and 4 years for drafted. 
 
-I will start the prediction from the beginning of their rookie season from the point at which they are drafted and thus will not be using any performance data. 
+I will start the prediction from the beginning of their rookie season from the point at which they are drafted and will not be using any performance data from the NFL data set. I will be using data from the CollegeballR package to determine if a player will be drafted in to the NFL.  
 
 --There are three groups to consider 1. Go professional 1a last 3 years 1b don't las 3 years, 2. Don' go professional -- category years for those who go professional and N/A for those who don't
 
-### Potential Clients
+## Potential Clients
 
 The client for this project would be the NFL, the teams, players, and agents. The information provided could help the NFL change the length of base contracts and reasses base pay for players. It would provide information to the teams for how long a player will last and analyze how much they should pay in signing bonuses. It would inform players and agents for how much of a signing bonus they should push for. 
 
-#### Source of data
+### Source of data
 
 There are two data sets which I will be using for this capstone project. The first source dataset is from Kaggle and is named [NFL Statistics](https://www.kaggle.com/kendallgillies/nflstatistics). The second source comes from GitHub a package created by Meyappan called [collegeballR](https://github.com/meysubb/collegeballR).
 
 When trying to tie team_stats to the data frame I found a bug in the team_stats.R where it was not looking up sport and giving an error. I had to fork the original dataset into [my repository](https://github.com/ericy203/collegeballR/) and edit the code. 
 
 The original size of the basic_stats data frame is 17,172 rows and 17 columns. Since the data from the collegeballR package is only available from 2014 - 2018 I will only be covering those years in the two data sets.
---because of collegeballR package we can only use from 2014 -2018 data.
 
 The variables I will use to predict are:
 
@@ -44,24 +43,17 @@ Another way to do it is change college to rank. According to year. If you could 
 * Height
 * Weight
 * BMI 
---focus only on the subset which we have rushing data for
---Wins and losses from team need to add from team stats
 
---further along on the analysis 
 
---more teams in college than professional
---NFL players from which colleges
---basic infromation we know but display it for a well rounded report
-#Found bug in code and had to change it
-merge team stats on to original data set
-finish up basic plots 
-start analysis 
-install git on R
 
-#### Deliverables
+### Deliverables
 
-The deliverables for this project will be the R markdown and the output of the markdown as a PDF. I chose this as the deliverable since the R markdown can have the code but the PDF doesn't need to have the code visible with the writen explanation of the analysis and prediction.
+The deliverables for this project will be:
 
+* NFL_Project.R - this is the file with all of the code
+* Capstone-Project.Rmd - this file has the analysis
+* Output of project file as a PDF
+* Deck of slides with plots
 
 
 #####Libraries used
@@ -82,20 +74,20 @@ library(ROCR)
 library(pROC)
 library(caTools)
 ```
-
+##NFL Data Set Import
 Set the working directory and read in the Basic Stats file
 
 ```{r}
 basic_stats <- read.csv("nflstatistics/Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
 ```
 
-##CollegeballR Import
-We need to import the collegedf data created from the above two queries.
+##NCAA Data Set Import
+We need to import the collegedf data set which has all of our NCAA player and team information.
 ```{r}
 collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
 ```
 
-##College_draft import
+##NFL & NCAA Joined Data Set Import
 ```{r}
 college_draft <- read.csv("./nflstatistics/college_draft.csv")
 ```
@@ -161,6 +153,7 @@ mean(basic_stats$Experience, na.rm = TRUE)
 
 #Clean College Ball R
 The CollegeBallR package was a data set found on Github but we had many issues using this data set. So we had to pull the data directly from the NCAA website and create our own data frame. The data frame had the below issues which needed to be fixed.
+
 1. Pull all combinations for each team and season from the NCAA website.
 2. Dropped all players which didn't have a position
  - The players didn't have a position because they didn't play that season.
@@ -201,10 +194,10 @@ ggplot(basic_stats) +
   aes(x = as.numeric(start_year), y = Height..inches.) +
   geom_point() +
   geom_smooth() +
-  labs(x = "Year", y = "Height in Lbs")
+  labs(x = "Year", y = "Height in Inches")
 ```
 
-The density plot below shows the different in height between all of the NFL teams. From the plots below it shows the most common height is around 75 inches. Players who are drafted and play in the NFL are usually between 70 and 77 inches in height.
+The density plot below shows the difference in height between all of the NFL teams. The most common height in the NFl seems to be around 75 inches. Players who are drafted and play in the NFL are usually between 70 and 77 inches in height. This means if you are below 70 inches it is still possible to be drafted but you'll have to be an excellent athlete to make it into the NFL. On the other hand there are a few players who are in the NFL at 80 inches or about 6 feet 8 inches. 
 ```{r, warning=FALSE}
 ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
          geom_density() +
@@ -213,7 +206,7 @@ ggplot(basic_stats, aes(Height..inches., fill = Current.Team)) +
   labs(x = "Height in Inches")
 ```
 
-The plot below shows the average years of experience for each NFL team. For many of the teams the first quartile is 0 meaning 1 in 4 players are rookies.
+The box and whisker plot below shows us the lowest observation, highest oservation, the four quartiles, and average years of experience for each NFL team. For many of the teams the first quartile is 0 meaning 1 in 4 players are rookies. There are 19 teams with 3 years of median experience and 12 teams with 2 years of median experience. This means most players in the NFL have between 2 and 3 years of experience. It looks like 75% of players will retire between 5 and 7 years of playing in the NFL. The New Orleans Saints have the highest observation of years of experience and third quartile of player retiring. Almost every team has outliers and what is surprising is some players have over 15 years in the NFL.
 ```{r}
 ggplot(basic_stats, aes(Current.Team, Experience)) +
   geom_boxplot() +
@@ -316,7 +309,8 @@ draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush
 summary(draft2)
 ```
 
-#Discuss why there are differences in the drafting rates for the positions
+##Differences in the drafting rates for position
+The number of drafted players per position will come down to how many slots on the field utilize that position. Punters and kickers are one of the least drafted positions because there only needs to be one of them on the field and are not utilized very frequently. This will also mean punters and kickers will be less likely to get injured so they will have longer careers. So the need to draft a kicker or punter isn't as necessary as a position like an Offensive Lineman or Defensive Lineman. These two positions will play every snap on offense or defense and they are always in the mix. For these positions injuries occur a lot more frequently and career length will be shorter. 
 ```{r}
 ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
 ```
@@ -337,7 +331,7 @@ nrow(college_draftTrain)
 ```
 
 #Run the model on Train
-#the subset has all colleges where at least one player was drafted
+The subset has all colleges where at least one player was drafted
 ```{r}
 college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_drafted, college_draftTrain$team_name, FUN=sum) > 0)
 ```
