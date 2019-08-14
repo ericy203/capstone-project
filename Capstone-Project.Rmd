@@ -13,21 +13,25 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #Predicting the Longevity of NFL Players
 
-The goal of this project is to predict the length of a NFL players career. I will use data that is known about the player coming into the NFL and exclude data about the players performance throughout the seasons they played in the NFL. The success criteria will be based on 3 years, meaning if a player plays 3 years in the NFL they were succesful to draft for the team otherwise they were unsuccessful. I have based the 3 year mark on current length of contract terms set by the NFL which are 3 years for undrafted players and 4 years for drafted. 
+The goal of this project is to predict the length of a NFL players career. I will use data that is known about the player coming into the NFL and exclude data about the players performance throughout the seasons they played in the NFL. The success criteria will be based on completing 3 years, meaning if a player plays 3 years in the NFL they were succesful to draft for the team otherwise they were unsuccessful. The 3 year mark is based on the current length of contract terms set by the NFL, which are 3 years for undrafted players and 4 years for drafted. 
 
-I will start the prediction from the beginning of their rookie season from the point at which they are drafted and will not be using any performance data from the NFL data set. I will be using data from the CollegeballR package to determine if a player will be drafted in to the NFL.  
+I will start the prediction from the beginning of their rookie season from the point at which they are drafted and will not be using any performance data from the NFL data set. I will be using data from the NCAA (via the CollegeballR package) to determine if a player will be drafted in to the NFL.  
 
---There are three groups to consider 1. Go professional 1a last 3 years 1b don't las 3 years, 2. Don' go professional -- category years for those who go professional and N/A for those who don't
+--There are three groups to consider 
+  1. Go professional 
+    1a. last 3 years 
+    1b. don't las 3 years, 
+  2. Don' go professional -- category years for those who go professional and N/A for those who don't
 
 ## Potential Clients
 
-The client for this project would be the NFL, the teams, players, and agents. The information provided could help the NFL change the length of base contracts and reasses base pay for players. It would provide information to the teams for how long a player will last and analyze how much they should pay in signing bonuses. It would inform players and agents for how much of a signing bonus they should push for. 
+The client for this project would be the NFL, the teams, players, and agents. The information provided could help the NFL change the length of base contracts and reasses base pay for players. It would provide information to the teams for how long a player may last and analyze how much they should pay in signing bonuses. It would inform players and agents for how much of a signing bonus they should push for. 
 
 ### Source of data
 
-There are two data sets which I will be using for this capstone project. The first source dataset is from Kaggle and is named [NFL Statistics](https://www.kaggle.com/kendallgillies/nflstatistics). The second source comes from GitHub a package created by Meyappan called [collegeballR](https://github.com/meysubb/collegeballR).
+There are two data sets which I will be using for this capstone project. The first source dataset is from Kaggle and is named [NFL Statistics](https://www.kaggle.com/kendallgillies/nflstatistics). The second source comes the NCAA (pulled using a package created by Meyappan called [collegeballR](https://github.com/meysubb/collegeballR)).
 
-When trying to tie team_stats to the data frame I found a bug in the team_stats.R where it was not looking up sport and giving an error. I had to fork the original dataset into [my repository](https://github.com/ericy203/collegeballR/) and edit the code. 
+When trying to tie team_stats to the data frame I found a bug in the team_stats.R where it was not looking up sport and giving an error. I had to fork the original package into [my repository](https://github.com/ericy203/collegeballR/) and edit the code. 
 
 The original size of the basic_stats data frame is 17,172 rows and 17 columns. Since the data from the collegeballR package is only available from 2014 - 2018 I will only be covering those years in the two data sets.
 
@@ -53,10 +57,10 @@ The deliverables for this project will be:
 * NFL_Project.R - this is the file with all of the code
 * Capstone-Project.Rmd - this file has the analysis
 * Output of project file as a PDF
-* Deck of slides with plots
+* Deck of slides with insights and plots
 
 
-#####Libraries used
+##### Libraries used
 
 Below are the libraries which I will be using in the capstone project. The collegeballR package is from GitHub and you will need to use devtools to install it.
 
@@ -74,27 +78,27 @@ library(ROCR)
 library(pROC)
 library(caTools)
 ```
-##NFL Data Set Import
+## NFL Data Set Import
 Set the working directory and read in the Basic Stats file
 
 ```{r}
 basic_stats <- read.csv("nflstatistics/Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
 ```
 
-##NCAA Data Set Import
+## NCAA Data Set Import
 We need to import the collegedf data set which has all of our NCAA player and team information.
 ```{r}
 collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
 ```
 
-##NFL & NCAA Joined Data Set Import
+## NFL & NCAA Joined Data Set Import
 ```{r}
 college_draft <- read.csv("./nflstatistics/college_draft.csv")
 ```
 
 
 --Clean the two data sets in different sections
-###Clean Basic Stats (NFL Data)
+### Clean Basic Stats (NFL Data)
 
 Let's check the data and basic information on basic_stats
 -xtable turn summary into a table
@@ -151,8 +155,8 @@ Look at the average career for a player
 mean(basic_stats$Experience, na.rm = TRUE)
 ```
 
-#Clean College Ball R
-The CollegeBallR package was a data set found on Github but we had many issues using this data set. So we had to pull the data directly from the NCAA website and create our own data frame. The data frame had the below issues which needed to be fixed.
+# Clean College Ball R
+The CollegeBallR package was available on Github but we had many issues using this data set. So we had to pull the data directly from the NCAA website and create our own data frame. The data frame had the below issues which needed to be fixed.
 
 1. Pull all combinations for each team and season from the NCAA website.
 2. Dropped all players which didn't have a position
@@ -164,7 +168,7 @@ The CollegeBallR package was a data set found on Github but we had many issues u
 
 
 
-#Create and Clean College_draft
+# Create and Clean College_draft
 To create the data frame College_draft I did a left join on the NCAA and NFL data frames.
 By creating this data frame we were able to analyze how many players were drafted from college into the NFL and from which teams. However, there were some data problems that I needed to fix which I will list below.
 
@@ -176,7 +180,7 @@ By creating this data frame we were able to analyze how many players were drafte
 6. Dropped all NULL positions from the data set.
 7. Created a cleaned version of the csv to be be used later in the project.
 
-##NFL Plots
+## NFL Plots
 One question that may be asked while reviewing NFL player data is are the players bigger now than they were when the NFL started. In the chart below we see that players now weigh aproximately 60 to 70 lbs more than in the 1920's. From 1920 to around 2000 there was a steady increase in the weight of the players. Since 200 the average weight of players has stayed about the same. The below chart shows the mean weight of football players has increased from 1920 to 2018.
 ```{r}
 ggplot(basic_stats) +
@@ -215,7 +219,7 @@ ggplot(basic_stats, aes(Current.Team, Experience)) +
 ```
 
 
-##Collegeball R Plots
+## Collegeball R Plots
 This bar plot shows the distribution of players by year, season and the progression of players from Freshman, Sophmore, Junior, and Senior by year. The amount of players progressing from one year to the next is never the same for any of the years. Senior year is always lower than the previous Junior year. This could be because of players moving into the NFL before completeing their Senior year. The increase of players in the Sophmore and Junior years could be caused by players transferring from Junior Colleges. 
 ```{r}
 ggplot(collegedf, aes(season, fill = Yr, group = Yr)) +
@@ -297,7 +301,7 @@ SSE3
 ```
 
 
-#Linear Model for drafting
+# Linear Model for drafting
 ```{r}
 draft1 <- lm(was_drafted ~ poly(Height..inches., 2) + Weight..lbs., data = na.omit(college_draft[c("Height..inches.", "Weight..lbs.", "was_drafted")]))
 summary(draft1)
@@ -309,7 +313,7 @@ draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush
 summary(draft2)
 ```
 
-##Differences in the drafting rates for position
+## Differences in the drafting rates for position
 The number of drafted players per position will come down to how many slots on the field utilize that position. Punters and kickers are one of the least drafted positions because there only needs to be one of them on the field and are not utilized very frequently. This will also mean punters and kickers will be less likely to get injured so they will have longer careers. So the need to draft a kicker or punter isn't as necessary as a position like an Offensive Lineman or Defensive Lineman. These two positions will play every snap on offense or defense and they are always in the mix. For these positions injuries occur a lot more frequently and career length will be shorter. 
 ```{r}
 ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
@@ -317,80 +321,80 @@ ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
 
 
 
-#Logistic Regression
+# Logistic Regression
 ```{r}
 set.seed(122)
 split <- sample.split(college_draft$was_drafted, SplitRatio = 0.75)
 ```
 
 
-#create training set
+# create training set
 ```{r}
 college_draftTrain <- subset(college_draft, split == TRUE)
 nrow(college_draftTrain)
 ```
 
-#Run the model on Train
+# Run the model on Train
 The subset has all colleges where at least one player was drafted
 ```{r}
 college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_drafted, college_draftTrain$team_name, FUN=sum) > 0)
 ```
 
-#Build the Logistic Regression Model
+# Build the Logistic Regression Model
 ```{r}
 college_draftLog <- glm(was_drafted ~ GP + Pos + Yr + team_name, family = binomial(), college_draftTrain)
 ```
 
-#Check why LS only has values for 2018
+# Check why LS only has values for 2018
 ```{r}
 subset(college_draft, college_draft$Pos == "LS" & season == 2017)
 ```
 
-#Build prediction of college_draftLog
+# Build prediction of college_draftLog
 ```{r}
 predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
 summary(predict_college_draftTrain)
 ```
 
-#To get the fn, fp, tn, tp
+# To get the fn, fp, tn, tp
 ```{r}
 table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
 ```
 
-#average predicted probabilities
+# average predicted probabilities
 ```{r}
 tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
 ```
-#Precision and recall
-#Accuracy
+# Precision and recall
+# Accuracy
 ```{r}
 (9887 + 1616)/(9887 + 4862 + 447 + 1616)
 ```
-#ROC Curve
+# ROC Curve
 ```{r}
 ROCRpred_Train <- prediction
 ```
 
-#create testing set
+# create testing set
 ```{r}
 college_draftTest <- subset(college_draft, split == FALSE)
 college_draftTest <- subset(college_draftTest, college_draftTest$team_name %in% college_draftTrain$team_name)
 nrow(college_draftTest)
 ```
 
-#Test prediction on Test data set
+# Test prediction on Test data set
 ```{r}
 predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response" )
 summary(predict_Test)
 table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
 ```
 
-#Accuracy
+# Accuracy
 ```{r}
 (3479 + 544)/(3479 + 1593 + 144 + 544)
 ```
 
-#ROC Curve
+# ROC Curve
 ```{r}
 ROCRpred_Test <- prediction(predict_Test, college_draftTest$was_drafted)
 ROCRperf_Test <- performance(ROCRpred_Test, "tpr", "fpr")
@@ -398,85 +402,85 @@ plot(ROCRperf_Test)
 ```
 
 
-#Logistic Regression 2
-#create training set
+# Logistic Regression 2
+# create training set
 ```{r}
 college_draftTrain2 <- subset(college_draft, split == TRUE)
 nrow(college_draftTrain2)
 ```
 
-#Run the model on Train2
-#the subset has all colleges where at least one player was drafted
+# Run the model on Train2
+# the subset has all colleges where at least one player was drafted
 ```{r}
 college_draftTrain2 <- subset(college_draftTrain2, ave(college_draftTrain2$was_drafted, college_draftTrain2$team_name, FUN=sum) > 0)
 ```
 
-#Build the Logistic Regression Model
+# Build the Logistic Regression Model
 ```{r}
 college_draftLog2 <- glm(was_drafted ~ Pos + GP + GS + season + team_name, family = binomial(), college_draftTrain2)
 summary(college_draftLog2)
 ```
 
-#Build prediction of college_draftLog2
+# Build prediction of college_draftLog2
 ```{r}
 predict_college_draftTrain2 <- predict(college_draftLog2, newdata = college_draftTrain2, type = "response")
 summary(predict_college_draftTrain2)
 ```
 
-#Get the fn, fp, tn, tp
+# Get the fn, fp, tn, tp
 ```{r}
 table(college_draftTrain2$was_drafted, predict_college_draftTrain2 > mean(college_draftTrain2$was_drafted))
 ```
 
-#average predicted probabilities
+# average predicted probabilities
 ```{r}
 tapply(predict_college_draftTrain2, college_draftTrain2$was_drafted,  FUN=mean)
 ```
 
-#Accuracy
+# Accuracy
 ```{r}
 (11291 + 1651)/(11291 + 3456 + 412 + 1651)
 ```
 
-#create testing set
+# create testing set
 ```{r}
 college_draftTest2 <- subset(college_draft, split == FALSE)
 nrow(college_draftTest2)
 ```
 
-#the subset has all colleges where at least one player was drafted in test
+# the subset has all colleges where at least one player was drafted in test
 ```{r}
 college_draftTest2 <- subset(college_draftTest2, ave(college_draftTest2$was_drafted, college_draftTest2$team_name, FUN=sum) > 0)
 ```
 
-#Build test prediction of college_draftTestLog
+# Build test prediction of college_draftTestLog
 ```{r}
 predict_cdTest2 <- predict(college_draftLog2, newdata = college_draftTest2, type = "response")
 summary(predict_cdTest2)
 ```
 
-#To get the fn, fp, tn, tp
+# To get the fn, fp, tn, tp
 ```{r}
 table(college_draftTest2$was_drafted, predict_cdTest2 > mean(college_draftTest2$was_drafted))
 ```
 
-#average predicted probabilities on Test
+# average predicted probabilities on Test
 ```{r}
 tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean)
 ```
 
-#Accuracy
+# Accuracy
 ```{r}
 (3811 + 558)/(3811 + 1181 + 130 + 558)
 ```
 
-#ROC Curve
+# ROC Curve
 ```{r}
 ROCRpred_Test2 <- prediction(predict_cdTest2, college_draftTest2$was_drafted)
 ROCRperf_Test2 <- performance(ROCRpred_Test2, "tpr", "fpr")
 plot(ROCRperf_Test2)
 ```
-#Trying to stack ROC plots
+# Trying to stack ROC plots
 ```{r}
 plot(ROCRperf_Test, col = 552, lty = 1, main = "ROC")
 plot(ROCRperf_Test2, col = 24 , lty = 2, add = TRUE)
