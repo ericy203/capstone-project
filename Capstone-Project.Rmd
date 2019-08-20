@@ -47,7 +47,7 @@ basic_stats <- read.csv("nflstatistics/basic_stats_clean.csv", header = TRUE, st
 ```
 
 ```{r echo=FALSE}
-kable(basic_stats[1:5, 1:18]) %>%
+kable(basic_stats[1:5, c("Age","Name","College","Experience","Height..inches.","Weight..lbs.")]) %>%
   kable_styling(bootstrap_options = c("stripped", "hover"))
 ```
 
@@ -58,7 +58,7 @@ collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, strings
 ```
 
 ```{r echo=FALSE}
-kable(collegedf[1:5, 1:18]) %>%
+kable(collegedf[1:5, c("Player","team_name","Yr","Pos","GP","GS","G","Rush.Attempts","Rush.Net.Yards","Rush.YdsGained")]) %>%
   kable_styling(bootstrap_options = c("stripped", "hover"))
 ```
 
@@ -68,7 +68,7 @@ college_draft <- read.csv("./nflstatistics/college_draft.csv")
 ```
 
 ```{r echo=FALSE}
-kable(college_draft[1:5, c("Player","Yr","Pos","GP")]) %>%
+kable(college_draft[1:5, c("Player","Yr","Pos","GP","GS","GNS","Height..inches.","Weight..lbs.","was_drafted","team_name")]) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
@@ -108,7 +108,7 @@ The deliverables for this project will be:
 * Deck of slides with insights and plots
 
 
---Clean the two data sets in different sections
+
 ### Clean Basic Stats (NFL Data)
 
 Let's check the data and basic information on basic_stats
@@ -319,15 +319,29 @@ predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftT
 summary(predict_college_draftTrain)
 ```
 
-# To get the fn, fp, tn, tp
-```{r}
-table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
-```
-
 # average predicted probabilities
 ```{r}
 tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
 ```
+
+# To get the fn, fp, tn, tp
+```{r}
+train_fnfp <- table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
+kable(train_fnfp) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### Sensitivity
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+```{r}
+1591/2047
+```
+### Specificity
+```{r}
+9885/14554
+```
+
+
 # Precision and recall
 # Accuracy
 ```{r}
@@ -349,9 +363,22 @@ nrow(college_draftTest)
 ```{r}
 predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response" )
 summary(predict_Test)
-table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
 ```
 
+```{r}
+test_fnfp <- table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
+kable(test_fnfp) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+### Sensitivity
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+```{r}
+549/682
+```
+### Specificity
+```{r}
+3242/4923
+```
 # Accuracy
 ```{r}
 (3479 + 544)/(3479 + 1593 + 144 + 544)
