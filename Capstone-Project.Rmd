@@ -13,58 +13,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #Predicting the Longevity of NFL Players
 
-The goal of this project is to predict the length of a NFL players career. I will use data that is known about the player coming into the NFL and exclude data about the players performance throughout the seasons they played in the NFL. The success criteria will be based on completing 3 years, meaning if a player plays 3 years in the NFL they were succesful to draft for the team otherwise they were unsuccessful. The 3 year mark is based on the current length of contract terms set by the NFL, which are 3 years for undrafted players and 4 years for drafted. 
+The goal of this project is to predict which players from NCAA College Football will be drafted into the NFL. I will use data of the college players to predict which players will be drafted into the NFL. The success criteria will be based on TRUE or FALSE, TRUE if the player is drafted into the NFL, they were succesful or FALSE the player was not drafted into the NFL or they were unsuccessful. 
 
-I will start the prediction from the beginning of their rookie season from the point at which they are drafted and will not be using any performance data from the NFL data set. I will be using data from the NCAA (via the CollegeballR package) to determine if a player will be drafted in to the NFL.  
-
---There are three groups to consider 
-  1. Go professional 
-    1a. last 3 years 
-    1b. don't las 3 years, 
-  2. Don' go professional -- category years for those who go professional and N/A for those who don't
+I will start the prediction from their Freshman year through their Senior year. Performance data from the NFL data set will not be used for predictions. I will be using data from the NCAA (via the CollegeballR package) to determine if a player will be drafted in to the NFL.  
 
 ## Potential Clients
 
-The client for this project would be the NFL, the teams, players, and agents. The information provided could help the NFL change the length of base contracts and reasses base pay for players. It would provide information to the teams for how long a player may last and analyze how much they should pay in signing bonuses. It would inform players and agents for how much of a signing bonus they should push for. 
+The client for this project would be the NFL teams, players, and agents. The information provided could help the NFL teams understand which teams generally have the most tallent. It will also help them to see what teams may have hidden talent. This project could benefit players in High School deciding which schools can best help them get to the NFL. For current college players the project can help them know their likelyhood of gettign into the NFL. For agents the project will help them decide which college teams they should go after to get players drafted into the NFL. 
 
-### Source of data
-
-There are two data sets which I will be using for this capstone project. The first source dataset is from Kaggle and is named [NFL Statistics](https://www.kaggle.com/kendallgillies/nflstatistics). The second source comes the NCAA (pulled using a package created by Meyappan called [collegeballR](https://github.com/meysubb/collegeballR)).
-
-When trying to tie team_stats to the data frame I found a bug in the team_stats.R where it was not looking up sport and giving an error. I had to fork the original package into [my repository](https://github.com/ericy203/collegeballR/) and edit the code. 
-
-The original size of the basic_stats data frame is 17,172 rows and 17 columns. Since the data from the collegeballR package is only available from 2014 - 2018 I will only be covering those years in the two data sets.
-
-The variables I will use to predict are:
-
-* Age
-* Birth Place
-* College - massage it into something else. What about college could influence how well you do in the NFL
-PAC12- BIG 10, D1, D2, small college re classify into 5 - 10. 
-Another way to do it is change college to rank. According to year. If you could pull the ranks from their senior year. Quantitative instead of categorical. 
-* Position
-* Initial Team
-* Height
-* Weight
-* BMI 
-
-
-
-### Deliverables
-
-The deliverables for this project will be:
-
-* NFL_Project.R - this is the file with all of the code
-* Capstone-Project.Rmd - this file has the analysis
-* Output of project file as a PDF
-* Deck of slides with insights and plots
-
-
-##### Libraries used
+#### Libraries used
 
 Below are the libraries which I will be using in the capstone project. The collegeballR package is from GitHub and you will need to use devtools to install it.
 
-```{r echo = FALSE}
+```{r results = "hide", message = FALSE, warning=FALSE}
 library(devtools)
 library(readr) 
 library(dplyr)
@@ -82,7 +43,12 @@ library(caTools)
 Set the working directory and read in the Basic Stats file
 
 ```{r}
-basic_stats <- read.csv("nflstatistics/Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
+basic_stats <- read.csv("nflstatistics/basic_stats_clean.csv", header = TRUE, stringsAsFactors = FALSE)
+```
+
+```{r echo=FALSE}
+kable(basic_stats[1:5, 1:18]) %>%
+  kable_styling(bootstrap_options = c("stripped", "hover"))
 ```
 
 ## NCAA Data Set Import
@@ -91,10 +57,55 @@ We need to import the collegedf data set which has all of our NCAA player and te
 collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
 ```
 
+```{r echo=FALSE}
+kable(collegedf[1:5, 1:18]) %>%
+  kable_styling(bootstrap_options = c("stripped", "hover"))
+```
+
 ## NFL & NCAA Joined Data Set Import
 ```{r}
 college_draft <- read.csv("./nflstatistics/college_draft.csv")
 ```
+
+```{r echo=FALSE}
+kable(college_draft[1:5, c("Player","Yr","Pos","GP")]) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+### Source of data
+
+There are two data sets which I will be using for this capstone project. The first source dataset is from Kaggle and is named [NFL Statistics](https://www.kaggle.com/kendallgillies/nflstatistics). The second source comes the NCAA (pulled using a package created by Meyappan called [collegeballR](https://github.com/meysubb/collegeballR)).
+
+When trying to tie team_stats to the data frame I found a bug in the team_stats.R where it was not looking up sport and giving an error. I had to fork the original package into [my repository](https://github.com/ericy203/collegeballR/) and edit the code. 
+
+The original size of the basic_stats data frame is 17,172 rows and 17 columns. Since the data from the collegeballR package is only available from 2014 - 2018. I will only be covering the years between 2014 and 2017 as the 2018 data was not available yet at the time of downloading.
+
+The variables I will use to predict are:
+
+* College Team
+* Position
+* Games Played - How many games the player played in the season
+* Games Started - How many games a player started
+* Games Not Started - Games Played - Games started = Games Not Started
+* Rush Attempts
+* Rush Net Yards
+* Rush Yards Gained
+* Height
+* Weight
+* Experience
+* Year - Freshman, Sophmore, Junior, Senior
+
+
+
+### Deliverables
+
+The deliverables for this project will be:
+
+* NFL_Project.R - this is the file with all of the code
+* Capstone-Project.Rmd - this file has the analysis
+* Output of project file as a PDF
+* Deck of slides with insights and plots
 
 
 --Clean the two data sets in different sections
@@ -102,58 +113,10 @@ college_draft <- read.csv("./nflstatistics/college_draft.csv")
 
 Let's check the data and basic information on basic_stats
 -xtable turn summary into a table
-```{r}
+```{r results='asis'}
 xtable(summary(basic_stats))
 ```
 
-Check for "" in the Experience column
-```{r}
-basic_stats$Experience[basic_stats$Experience==""] <- NA
-```
-
-seperate Years.Played into two columns so we can calculate experience and replace the ""
-```{r}
-basic_stats <- separate(basic_stats, Years.Played, c("start_year", "end_year"), sep = "-")
-```
-
-create a difference of end_year and start_year
-```{r}
-year_difference <- (as.numeric(basic_stats$end_year) - as.numeric(basic_stats$start_year))
-```
-
-calculate experience for "" and replace
-```{r}
-basic_stats$Experience[is.na(basic_stats$Experience)]<- year_difference[is.na(basic_stats$Experience)]
-```
-
-Converting Experience variable into number of seasons
-creating a vector named v
-```{r}
-v <- basic_stats$Experience
-```
-
-Change rookie to 0 
-```{r}
-v[grepl("[rR]ookie", basic_stats$Experience)] <- "0"
-```
-
-Strip all values except for digites from the string
-```{r}
-v <- gsub("[^0-9]", "", v)
-```
-
-Assign integers to basic_stats$Experience from v
-```{r}
-basic_stats$Experience <- as.integer(v)
-```
-
-
-####Basic Statistics for NFL data
-
-Look at the average career for a player 
-```{r}
-mean(basic_stats$Experience, na.rm = TRUE)
-```
 
 # Clean College Ball R
 The CollegeBallR package was available on Github but we had many issues using this data set. So we had to pull the data directly from the NCAA website and create our own data frame. The data frame had the below issues which needed to be fixed.
@@ -219,7 +182,7 @@ ggplot(basic_stats, aes(Current.Team, Experience)) +
 ```
 
 
-## Collegeball R Plots
+## NCAA Plots
 This bar plot shows the distribution of players by year, season and the progression of players from Freshman, Sophmore, Junior, and Senior by year. The amount of players progressing from one year to the next is never the same for any of the years. Senior year is always lower than the previous Junior year. This could be because of players moving into the NFL before completeing their Senior year. The increase of players in the Sophmore and Junior years could be caused by players transferring from Junior Colleges. 
 ```{r}
 ggplot(collegedf, aes(season, fill = Yr, group = Yr)) +

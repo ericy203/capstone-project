@@ -15,6 +15,10 @@ setwd("~/Documents/School/Springboard/Project/nflstatistics")
 basic_stats <- read.csv("Basic_Stats.csv", header = TRUE, stringsAsFactors = FALSE)
 
 
+#massage it into something else. What about college could influence how well you do in the NFL
+#PAC12- BIG 10, D1, D2, small college re classify into 5 - 10. 
+#Another way to do it is change college to rank. According to year. If you could pull the ranks from their senior year. Quantitative instead of categorical. 
+
 View(basic_stats)
 summary(basic_stats)
 str(basic_stats)
@@ -58,7 +62,8 @@ cbind(basic_stats$Experience[as.integer(v) >= 2], v[as.integer(v) >= 2])
 #Assign integers to basic_stats$Experience from v
 basic_stats$Experience <- as.integer(v)
 #basic_stats$Experience <- as.integer(unique(v))
-
+#Write basic_stats to basic_stats_clean
+write.csv(basic_stats, file = "basic_stats_clean.csv")
 
 grep("[0-9]+", basic_stats$Experience[1:100], value = TRUE)
 
