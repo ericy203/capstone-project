@@ -4,6 +4,7 @@ author: "Eric Young"
 date: "8/13/2019"
 output:
   pdf_document: default
+  word_document: default
   html_document: default
 ---
 
@@ -38,6 +39,7 @@ library(kableExtra)
 library(ROCR)
 library(pROC)
 library(caTools)
+library(texreg)
 ```
 ## NFL Data Set Import
 Set the working directory and read in the Basic Stats file
@@ -48,7 +50,7 @@ basic_stats <- read.csv("nflstatistics/basic_stats_clean.csv", header = TRUE, st
 
 ```{r echo=FALSE}
 kable(basic_stats[1:5, c("Age","Name","College","Experience","Height..inches.","Weight..lbs.")]) %>%
-  kable_styling(bootstrap_options = c("stripped", "hover"))
+  kable_styling(latex_options = c("striped"))
 ```
 
 ## NCAA Data Set Import
@@ -59,7 +61,7 @@ collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, strings
 
 ```{r echo=FALSE}
 kable(collegedf[1:5, c("Player","team_name","Yr","Pos","GP","GS","G","Rush.Attempts","Rush.Net.Yards","Rush.YdsGained")]) %>%
-  kable_styling(bootstrap_options = c("stripped", "hover"))
+  kable_styling(latex_options = c("striped", "scale_down"))
 ```
 
 ## NFL & NCAA Joined Data Set Import
@@ -69,7 +71,7 @@ college_draft <- read.csv("./nflstatistics/college_draft.csv")
 
 ```{r echo=FALSE}
 kable(college_draft[1:5, c("Player","Yr","Pos","GP","GS","GNS","Height..inches.","Weight..lbs.","was_drafted","team_name")]) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+  kable_styling(latex_options = c("striped"))
 ```
 
 
@@ -114,7 +116,12 @@ The deliverables for this project will be:
 Let's check the data and basic information on basic_stats
 -xtable turn summary into a table
 ```{r results='asis'}
-xtable(summary(basic_stats))
+kable(summary(basic_stats[ , 1:7])) %>%
+  kable_styling(latex_options = c("striped", "scale_down"))
+kable(summary(basic_stats[ , 8:14])) %>%
+  kable_styling(latex_options = c("striped", "scale_down"))
+kable(summary(basic_stats[ , 15:18])) %>%
+  kable_styling(latex_options = c("striped"))
 ```
 
 
@@ -271,10 +278,15 @@ summary(draft1)
 ```
 
 
-```{r}
+```{r results="asis"}
 draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush.YdsGained, data = college_draft)
 summary(draft2)
 ```
+
+```{r results="asis"}
+texreg(list(draft1,draft2), table = FALSE, use.packages = FALSE)
+```
+
 
 ## Differences in the drafting rates for position
 The number of drafted players per position will come down to how many slots on the field utilize that position. Punters and kickers are one of the least drafted positions because there only needs to be one of them on the field and are not utilized very frequently. This will also mean punters and kickers will be less likely to get injured so they will have longer careers. So the need to draft a kicker or punter isn't as necessary as a position like an Offensive Lineman or Defensive Lineman. These two positions will play every snap on offense or defense and they are always in the mix. For these positions injuries occur a lot more frequently and career length will be shorter. 
@@ -308,11 +320,6 @@ college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_draf
 college_draftLog <- glm(was_drafted ~ GP + Pos + Yr + team_name, family = binomial(), college_draftTrain)
 ```
 
-# Check why LS only has values for 2018
-```{r}
-subset(college_draft, college_draft$Pos == "LS" & season == 2017)
-```
-
 # Build prediction of college_draftLog
 ```{r}
 predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
@@ -328,7 +335,7 @@ tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
 ```{r}
 train_fnfp <- table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
 kable(train_fnfp) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+  kable_styling(latex_options = "striped")
 ```
 
 ### Sensitivity
@@ -341,8 +348,6 @@ Sensitivity is the correct number of predicted players drafted by by the total n
 9885/14554
 ```
 
-
-# Precision and recall
 # Accuracy
 ```{r}
 (9887 + 1616)/(9887 + 4862 + 447 + 1616)
@@ -368,7 +373,7 @@ summary(predict_Test)
 ```{r}
 test_fnfp <- table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
 kable(test_fnfp) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+  kable_styling(latex_options = "striped")
 ```
 ### Sensitivity
 Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
@@ -391,6 +396,15 @@ ROCRperf_Test <- performance(ROCRpred_Test, "tpr", "fpr")
 plot(ROCRperf_Test)
 ```
 
+## Recall
+```{r}
+ROCRperf_Test@x.values[[1]][1698]
+```
+
+## Precision
+```{r}
+ROCRperf_Test@y.values[[1]][1698]
+```
 
 # Logistic Regression 2
 # create training set
@@ -420,6 +434,16 @@ summary(predict_college_draftTrain2)
 # Get the fn, fp, tn, tp
 ```{r}
 table(college_draftTrain2$was_drafted, predict_college_draftTrain2 > mean(college_draftTrain2$was_drafted))
+```
+
+### Sensitivity
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+```{r}
+1642/2047
+```
+### Specificity
+```{r}
+11199/14552
 ```
 
 # average predicted probabilities
@@ -454,6 +478,16 @@ summary(predict_cdTest2)
 table(college_draftTest2$was_drafted, predict_cdTest2 > mean(college_draftTest2$was_drafted))
 ```
 
+### Sensitivity
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+```{r}
+527/682
+```
+### Specificity
+```{r}
+3418/4538
+```
+
 # average predicted probabilities on Test
 ```{r}
 tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean)
@@ -470,6 +504,17 @@ ROCRpred_Test2 <- prediction(predict_cdTest2, college_draftTest2$was_drafted)
 ROCRperf_Test2 <- performance(ROCRpred_Test2, "tpr", "fpr")
 plot(ROCRperf_Test2)
 ```
+## Recall
+```{r}
+ROCRperf_Test2@x.values[[1]][1613]
+```
+
+## Precision
+```{r}
+ROCRperf_Test2@y.values[[1]][1613]
+```
+
+
 # Trying to stack ROC plots
 ```{r}
 plot(ROCRperf_Test, col = 552, lty = 1, main = "ROC")
