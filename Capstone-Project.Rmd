@@ -236,6 +236,10 @@ ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
 nfl_model <- lm(Experience ~ College, data = basic_stats)
 ```
 
+```{r results="asis"}
+texreg(nfl_model)
+```
+
 
 ```{r}
 SSE <- sum(nfl_model$residuals^2)
@@ -274,13 +278,11 @@ SSE3
 # Linear Model for drafting
 ```{r}
 draft1 <- lm(was_drafted ~ poly(Height..inches., 2) + Weight..lbs., data = na.omit(college_draft[c("Height..inches.", "Weight..lbs.", "was_drafted")]))
-summary(draft1)
 ```
 
 
 ```{r results="asis"}
 draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush.YdsGained, data = college_draft)
-summary(draft2)
 ```
 
 ```{r results="asis"}
@@ -297,6 +299,8 @@ ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
 
 
 # Logistic Regression
+Using logistic regression I will predict whether a player will be drafted into the NFL. The outcome of the prediction will be TRUE or FALSE, TRUE if the player is drafted into the NFL and FALSE if the player is not drafted. I will use a joined data set of the NFL and NCAA data sets to run the prediction on.
+
 ```{r}
 set.seed(122)
 split <- sample.split(college_draft$was_drafted, SplitRatio = 0.75)
@@ -310,48 +314,50 @@ nrow(college_draftTrain)
 ```
 
 # Run the model on Train
-The subset has all colleges where at least one player was drafted
+The subset defined below has all colleges where at least one player was drafted.
 ```{r}
 college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_drafted, college_draftTrain$team_name, FUN=sum) > 0)
 ```
 
 # Build the Logistic Regression Model
+I built the logistic regression model using the dependent variable was_drafted  and the independent variables games played (GP), position (Pos), year (Yr), and team_name. 
 ```{r}
 college_draftLog <- glm(was_drafted ~ GP + Pos + Yr + team_name, family = binomial(), college_draftTrain)
+summary(college_draftLog)
 ```
 
 # Build prediction of college_draftLog
+Here I take the logistic regression model created above and predict the likelihood of a player being drafted into the NFL. When we look at the summary of the prediction we have a minimum chance of being drafted in to the NFL of 0% and a maximum of 68.9%.
 ```{r}
 predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
 summary(predict_college_draftTrain)
 ```
 
 # average predicted probabilities
+For all of the TRUE cases where the player was drafted there is a probability of 0.247 and all of the TRUE cases where the player didn't get drafted of 0.105. We can see we are predicting slightly higher the TRUE cases that are drafted.
 ```{r}
 tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
 ```
 
 # To get the fn, fp, tn, tp
+The below table gives us the total cases where players were correctly predicted 
 ```{r}
 train_fnfp <- table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
 kable(train_fnfp) %>%
   kable_styling(latex_options = "striped")
 ```
 
-### Sensitivity
+### Sensitivity, Specificity, and Accuracy
 Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
 ```{r}
-1591/2047
-```
-### Specificity
-```{r}
-9885/14554
+sens <- 1591/2047
+spec <- 9885/14554
+acc <- (9887 + 1616)/(9887 + 4862 + 447 + 1616)
+kable(data.frame(sens,spec,acc))
 ```
 
-# Accuracy
-```{r}
-(9887 + 1616)/(9887 + 4862 + 447 + 1616)
-```
+
+
 # ROC Curve
 ```{r}
 ROCRpred_Train <- prediction
@@ -365,9 +371,16 @@ nrow(college_draftTest)
 ```
 
 # Test prediction on Test data set
+Here I take the logistic regression model created above and predict the likelihood of a player being drafted into the NFL. When we look at the summary of the prediction we have a minimum chance of being drafted in to the NFL of 0% and a maximum of 66.2%.
 ```{r}
 predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response" )
 summary(predict_Test)
+```
+
+# average predicted probabilities
+For all of the TRUE cases where the player was drafted there is a probability of 0.246 and all of the TRUE cases where the player didn't get drafted of 0.109. We can see we are predicting slightly higher the TRUE cases that are drafted.
+```{r}
+tapply(predict_Test, college_draftTest$was_drafted,  FUN=mean)
 ```
 
 ```{r}
@@ -489,6 +502,7 @@ Sensitivity is the correct number of predicted players drafted by by the total n
 ```
 
 # average predicted probabilities on Test
+For all of the TRUE cases where the player was drafted there is a probability of 0.32 and all of the TRUE cases where the player didn't get drafted of 0.1. We can see we are predicting slightly higher the TRUE cases that are drafted.
 ```{r}
 tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean)
 ```
