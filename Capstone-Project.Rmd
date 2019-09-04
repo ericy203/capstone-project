@@ -330,13 +330,13 @@ summary(college_draftLog)
 Here I take the logistic regression model created above and predict the likelihood of a player being drafted into the NFL. When we look at the summary of the prediction we have a minimum chance of being drafted in to the NFL of 0% and a maximum of 68.9%.
 ```{r}
 predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
-summary(predict_college_draftTrain)
+kable(as.matrix(summary(predict_college_draftTrain)))
 ```
 
 # average predicted probabilities
 For all of the TRUE cases where the player was drafted there is a probability of 0.247 and all of the TRUE cases where the player didn't get drafted of 0.105. We can see we are predicting slightly higher the TRUE cases that are drafted.
 ```{r}
-tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)
+kable(tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean))
 ```
 
 # To get the fn, fp, tn, tp
