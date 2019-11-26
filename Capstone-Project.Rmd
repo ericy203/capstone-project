@@ -1,7 +1,7 @@
 ---
-title: "NFL_Project"
+title: "NFL Project"
 author: "Eric Young"
-date: "8/13/2019"
+date: "11/19/2019"
 output:
   pdf_document: default
   word_document: default
@@ -12,7 +12,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#Predicting the Longevity of NFL Players
+# Predicting the Longevity of NFL Players
 
 The goal of this project is to predict which players from NCAA College Football will be drafted into the NFL. I will use data of the college players to predict which players will be drafted into the NFL. The success criteria will be based on TRUE or FALSE, TRUE if the player is drafted into the NFL, they were succesful or FALSE the player was not drafted into the NFL or they were unsuccessful. 
 
@@ -40,8 +40,9 @@ library(ROCR)
 library(pROC)
 library(caTools)
 library(texreg)
+library(margins)
 ```
-## NFL Data Set Import
+### NFL Data Set Import
 Set the working directory and read in the Basic Stats file
 
 ```{r}
@@ -53,7 +54,7 @@ kable(basic_stats[1:5, c("Age","Name","College","Experience","Height..inches.","
   kable_styling(latex_options = c("striped"))
 ```
 
-## NCAA Data Set Import
+### NCAA Data Set Import
 We need to import the collegedf data set which has all of our NCAA player and team information.
 ```{r}
 collegedf <- read.csv("./nflstatistics/college_data.csv", header = TRUE, stringsAsFactors = FALSE)
@@ -64,7 +65,7 @@ kable(collegedf[1:5, c("Player","team_name","Yr","Pos","GP","GS","G","Rush.Attem
   kable_styling(latex_options = c("striped", "scale_down"))
 ```
 
-## NFL & NCAA Joined Data Set Import
+### NFL & NCAA Joined Data Set Import
 ```{r}
 college_draft <- read.csv("./nflstatistics/college_draft.csv")
 ```
@@ -100,7 +101,7 @@ The variables I will use to predict are:
 
 
 
-### Deliverables
+#### Deliverables
 
 The deliverables for this project will be:
 
@@ -111,9 +112,13 @@ The deliverables for this project will be:
 
 
 
-### Clean Basic Stats (NFL Data)
+### Basic Stats (NFL Data)
 
 Let's check the data and basic information on basic_stats
+```{r}
+basic_stats <- separate(basic_stats, Birth.Place, c("City", "State"), sep = ",")
+```
+
 -xtable turn summary into a table
 ```{r results='asis'}
 kable(summary(basic_stats[ , 1:7])) %>%
@@ -125,7 +130,7 @@ kable(summary(basic_stats[ , 15:18])) %>%
 ```
 
 
-# Clean College Ball R
+## Clean College Ball R
 The CollegeBallR package was available on Github but we had many issues using this data set. So we had to pull the data directly from the NCAA website and create our own data frame. The data frame had the below issues which needed to be fixed.
 
 1. Pull all combinations for each team and season from the NCAA website.
@@ -138,7 +143,7 @@ The CollegeBallR package was available on Github but we had many issues using th
 
 
 
-# Create and Clean College_draft
+## Create and Clean College_draft
 To create the data frame College_draft I did a left join on the NCAA and NFL data frames.
 By creating this data frame we were able to analyze how many players were drafted from college into the NFL and from which teams. However, there were some data problems that I needed to fix which I will list below.
 
@@ -228,16 +233,21 @@ ggplot(filter(college_teams, start_year >= 2014), aes(x = team_name)) +
         axis.title=element_text(size=20,face="bold"))
 ```
 
---Include high level statistics and aggregate data not raw data
 
-#Linear and Logistic Regression
- #Linear Model for experience
+#Linear Regression
+### Linear Regression Model for experience
+ 
+Using a linear model I wanted to see if we could predict experience or the number of years a player would be in the NFL. What this model does is predicts the years of experience by college. 
 ```{r}
-nfl_model <- lm(Experience ~ College, data = basic_stats)
+basic_stats <- mutate(basic_stats, College = sub("&", " ", College, ignore.case = TRUE))
+nfl_model <- lm(Experience ~ College -1, data = basic_stats)
+AIC(nfl_model)
 ```
 
+The texreg of the model shows the relative experience by college. 
 ```{r results="asis"}
-texreg(nfl_model)
+broom::tidy(nfl_model) %>% top_n(5, estimate)
+broom::tidy(nfl_model) %>% top_n(5, -estimate)
 ```
 
 
@@ -245,44 +255,97 @@ texreg(nfl_model)
 SSE <- sum(nfl_model$residuals^2)
 SSE
 ```
+### Second Regression Model for experience
 
-
-Plot of nfl_model
+The second linear model uses weight in lbs and college to predict the experince of a player. 
 ```{r}
-plot(nfl_model)
+nfl_model2 <- lm(Experience ~ Weight..lbs. + College , data = basic_stats)
+AIC(nfl_model2)
 ```
-
-
-```{r}
-nfl_model2 <- lm(Experience ~ College + Weight..lbs., data = basic_stats)
-```
-
 
 ```{r}
 SSE2 <- sum(nfl_model2$residuals^2)
 SSE2
 ```
 
-
+From the plot below we see that this model is predicting the heavier the player the longer they will play in the NFL. This is not an accurate model for predicting experience for a player. 
 ```{r}
-nfl_model3 <- lm(Experience ~ Height..inches. + Weight..lbs., data = basic_stats)
+cplot(nfl_model2, "Weight..lbs.")
 ```
 
+### Third Regression Model for experience
+
+The third linear model uses height in inches, weight in lbs, and I(Weight..lbs.^2) + Position to predict the experince of a player. 
+```{r}
+nfl_model3 <- lm(Experience ~ Height..inches. + Weight..lbs. + I(Weight..lbs.^2) + Position, data = basic_stats)
+AIC(nfl_model3)
+```
 
 ```{r}
 SSE3 <- sum(nfl_model3$residuals^2)
 SSE3
 ```
-
-
-# Linear Model for drafting
+From the weight plot below we see that this model is showing players who are between 250 and 300 lbs have the longest longevity in the NFL. Above 300 lbs the players eperience starts to fall. 
+From the height plot below it shows the taller the player the more experince it is expected a player will have. This is not a practical assumption similar to model 2, it's not necesarily true the taller a player is the more years a player will have in the NFL.
 ```{r}
-draft1 <- lm(was_drafted ~ poly(Height..inches., 2) + Weight..lbs., data = na.omit(college_draft[c("Height..inches.", "Weight..lbs.", "was_drafted")]))
+cplot(nfl_model3, "Weight..lbs.")
+cplot(nfl_model3, "Height..inches.")
 ```
 
+From the plot below we see the predicted years if experience for positions based on the weight in lbs. I should note that a predicted value cannot be negative as a player cannot play negative time. For the defensive lineman it shows a negative to a positive predicted years of experience and has a median predicted value at 0 years of experience. From this example we gather that a DL will most likely have a short career in the NFL.
+```{r}
+cplot(nfl_model3, x = "Position", dx = "Weight..lbs.", ylab = "Predicted Years of Experience")
+```
 
+Create new variable predicted
+```{r}
+predicted <- predict(nfl_model3)
+ggplot(basic_stats %>% mutate(predicted = predict(nfl_model3, basic_stats)) %>% group_by(Weight..lbs.) %>% summarise(predicted = mean(predicted, na.rm = TRUE))) + aes(x = Weight..lbs., y = predicted) + geom_line()
+```
+
+### Fourth Regression Model for experience 
+
+The fourth linear model uses height in inches and  Weight..lbs. * Position to predict the experince of a player. 
+
+```{r}
+nfl_model4 <- lm(Experience ~ Height..inches. + Weight..lbs. * Position, data = basic_stats)
+AIC(nfl_model4)
+```
+
+```{r}
+SSE4 <- sum(nfl_model4$residuals^2)
+SSE4
+```
+The below box and whiskers plot which shows experience by state. It looks like the median experience is about 3 - 4 years for most states. The third quartile is generally from 5-7 years of experience. Which means most players will have retired between 5 and 7 years in the NFL.
+```{r}
+boxplot(Experience~State, basic_stats)
+```
+From the plot below we see the predicted years if experience for different positions. I should note that a predicted value cannot be negative as a player cannot play negative time. For the center back it shows 3 to 6  years of predicted experience and is predicted at 5 years of experience. From this example we gather that a CB will most likely have a lengthy career in the NFL.
+```{r}
+cplot(nfl_model4, "Position")
+```
+
+### Summary of Linear Models by Experience
+According to SSE the best model was weight and college with an SSE of 198610.6. However, when I used AIC it preferred the model height and weight by position with a value of 90677.07.
+
+# Linear Model for drafting
+
+For the first linear model to predict whether a player was drafted I used the dependent variable was_drafted and independent variables Year, Position, Games Played, and Games Started. From the table below we see the linear model draft1 Games played and Games Started are statistically significant. Games Started is more significant than Games Played. For Year variable Senior Year is statistically significant and Junior Year is almst statistically significant. The positions which are statistically significant are DL, K, RB, TE, and WR. Something to note is the prediction is based off of the DB position which may explain why DL is statistically significant and not a OL or QB.
+```{r}
+draft1 <- lm(was_drafted ~ Yr + Pos + GP + GS, data = college_draft)
+```
+
+```{r}
+summary(draft1)
+```
+
+For the second linear model to predict whether a player was drafted I used the dependent variable was_drafted and independent variables Year, position, games played, rushing attempts, rushing net yards, rushing yards gained. From the table below a players Junior and Senior year are statistically significant to being drafted into the NFL. While a players Sophmore year is almost statistically significant.
 ```{r results="asis"}
 draft2 <- lm(was_drafted ~ Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush.YdsGained, data = college_draft)
+```
+
+```{r}
+summary(draft2)
 ```
 
 ```{r results="asis"}
@@ -290,7 +353,7 @@ texreg(list(draft1,draft2), table = FALSE, use.packages = FALSE)
 ```
 
 
-## Differences in the drafting rates for position
+### Differences in the drafting rates for position
 The number of drafted players per position will come down to how many slots on the field utilize that position. Punters and kickers are one of the least drafted positions because there only needs to be one of them on the field and are not utilized very frequently. This will also mean punters and kickers will be less likely to get injured so they will have longer careers. So the need to draft a kicker or punter isn't as necessary as a position like an Offensive Lineman or Defensive Lineman. These two positions will play every snap on offense or defense and they are always in the mix. For these positions injuries occur a lot more frequently and career length will be shorter. 
 ```{r}
 ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
@@ -307,40 +370,42 @@ split <- sample.split(college_draft$was_drafted, SplitRatio = 0.75)
 ```
 
 
-# create training set
+#### create training set
 ```{r}
 college_draftTrain <- subset(college_draft, split == TRUE)
 nrow(college_draftTrain)
 ```
 
-# Run the model on Train
+#### Run the model on Train
 The subset defined below has all colleges where at least one player was drafted.
 ```{r}
 college_draftTrain <- subset(college_draftTrain, ave(college_draftTrain$was_drafted, college_draftTrain$team_name, FUN=sum) > 0)
 ```
 
-# Build the Logistic Regression Model
+#### Build the Logistic Regression Model
 I built the logistic regression model using the dependent variable was_drafted  and the independent variables games played (GP), position (Pos), year (Yr), and team_name. 
 ```{r}
 college_draftLog <- glm(was_drafted ~ GP + Pos + Yr + team_name, family = binomial(), college_draftTrain)
 summary(college_draftLog)
 ```
 
-# Build prediction of college_draftLog
+#### Build prediction of college_draftLog
 Here I take the logistic regression model created above and predict the likelihood of a player being drafted into the NFL. When we look at the summary of the prediction we have a minimum chance of being drafted in to the NFL of 0% and a maximum of 68.9%.
 ```{r}
 predict_college_draftTrain <- predict(college_draftLog, newdata = college_draftTrain, type = "response")
-kable(as.matrix(summary(predict_college_draftTrain)))
+kable(as.matrix(summary(predict_college_draftTrain))) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# average predicted probabilities
+### Average Predicted Probabilities
 For all of the TRUE cases where the player was drafted there is a probability of 0.247 and all of the TRUE cases where the player didn't get drafted of 0.105. We can see we are predicting slightly higher the TRUE cases that are drafted.
 ```{r}
-kable(tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean))
+kable(tapply(predict_college_draftTrain, college_draftTrain$was_drafted,  FUN=mean)) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# To get the fn, fp, tn, tp
-The below table gives us the total cases where players were correctly predicted 
+### Confusion Matrix
+The below table gives us the total cases where players were predicted as True Negative, False Positive, False Negative, and True Positive. It shows the model predicted 9885 players as not being drafted correctly. There are 4669 players which the model said they would not be drafted but were drafted. The model shows 456 players which were predicted to be drafted but were not and 1591 players predicted to be drafted which were drafted. This model is biased more towards predicting palyers to not be drafted into the NFL.
 ```{r}
 train_fnfp <- table(college_draftTrain$was_drafted, predict_college_draftTrain > mean(college_draftTrain$was_drafted))
 kable(train_fnfp) %>%
@@ -348,190 +413,205 @@ kable(train_fnfp) %>%
 ```
 
 ### Sensitivity, Specificity, and Accuracy
-Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+Sensitivity is the correct number of predicted players drafted divided by the total number of true positives and false negatives. Sensitivity measures the percentage of the actual players who were drafted correctly. The sensitivity of the model was .777, meaning 77.7% of actual positives were correctly identified.
+Specificity is the correct number of predicted players not drafted by the total number of true negatives and false positives. Specificity measures the percentage of the actual players who were not drafted correctly. The specificity of the model measured 67.9% of the predictions correctly of players who were not drafted.
+The accuracy of the model was .684, meaning the proportion was .684 of the predictions were correct.
 ```{r}
 sens <- 1591/2047
 spec <- 9885/14554
 acc <- (9887 + 1616)/(9887 + 4862 + 447 + 1616)
-kable(data.frame(sens,spec,acc))
+kable(data.frame(Sensitivity = sens, Specificity = spec, Accuracy = acc)) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-
-
-# ROC Curve
-```{r}
-ROCRpred_Train <- prediction
-```
-
-# create testing set
+#### Create a Testing Set
 ```{r}
 college_draftTest <- subset(college_draft, split == FALSE)
 college_draftTest <- subset(college_draftTest, college_draftTest$team_name %in% college_draftTrain$team_name)
 nrow(college_draftTest)
 ```
 
-# Test prediction on Test data set
+#### Test prediction on Test data set
 Here I take the logistic regression model created above and predict the likelihood of a player being drafted into the NFL. When we look at the summary of the prediction we have a minimum chance of being drafted in to the NFL of 0% and a maximum of 66.2%.
 ```{r}
-predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response" )
-summary(predict_Test)
+predict_Test <- predict(college_draftLog, newdata = college_draftTest, type = "response")
+kable(as.matrix(summary(predict_Test))) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# average predicted probabilities
+### Average Predicted Probabilities
 For all of the TRUE cases where the player was drafted there is a probability of 0.246 and all of the TRUE cases where the player didn't get drafted of 0.109. We can see we are predicting slightly higher the TRUE cases that are drafted.
 ```{r}
-tapply(predict_Test, college_draftTest$was_drafted,  FUN=mean)
+kable(tapply(predict_Test, college_draftTest$was_drafted,  FUN=mean)) %>%
+  kable_styling(latex_options = "striped")
 ```
-
+### Confusion Matrix
+The below table gives us the total cases where players were predicted as True Negative, False Positive, False Negative, and True Positive. It shows the model predicted 3242 players as not being drafted correctly. There are 1681 players which the model said they would not be drafted but were drafted. The model shows 133 players which were predicted to be drafted but were not and 549 players predicted to be drafted which were drafted. This model is biased more towards predicting palyers to not be drafted into the NFL.
 ```{r}
 test_fnfp <- table(college_draftTest$was_drafted, predict_Test > mean(college_draftTrain$was_drafted))
 kable(test_fnfp) %>%
   kable_styling(latex_options = "striped")
 ```
-### Sensitivity
-Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+
+### Sensitivity, Specificity, and Accuracy
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives. Sensitivity measures the percentage of the actual players who were drafted correctly. The sensitivity of the model was .804, meaning 80.4% of actual positives were correctly identified.
+Specificity is the correct number of predicted players not drafted by the total number of true negatives and false positives. Specificity measures the percentage of the actual players who were not drafted correctly. The specificity of the model measured 65.8% of the predictions correctly of players who were not drafted.
+The accuracy of the model was .698, meaning the proportion was .698 of the predictions were correct.
 ```{r}
-549/682
-```
-### Specificity
-```{r}
-3242/4923
-```
-# Accuracy
-```{r}
-(3479 + 544)/(3479 + 1593 + 144 + 544)
+sens2 <- 549/682
+spec2 <- 3242/4923
+acc2 <- (3479 + 544)/(3479 + 1593 + 144 + 544)
+kable(data.frame(Sensitivity = sens2,Specificity = spec2,Accuracy = acc2)) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# ROC Curve
+
+### ROC Curve, AUC, Recall & Precision
+In the ROC Curve plot below it shows the true positive rate and the false positive rate. Based on the results I would like to choose a threshold value from 0.3 t0 0.2 as this threshold value range pulls the most towards the top left corner. A threshold value chosen in this range will provide the best tradeoff for the true positive and false positive rates.
+A random guess for area under the curve (AUC) is 0.5. So the model created needs to perform better than a random guess. The AUC for this model is 0.797 which is a lot better than a random guess but it's not perfect. 
+If the decision threshold were at .2 then the recall would be .6 and the precision would be .75.
 ```{r}
-ROCRpred_Test <- prediction(predict_Test, college_draftTest$was_drafted)
+ROCRpred_Test <- ROCR::prediction(predict_Test, college_draftTest$was_drafted)
 ROCRperf_Test <- performance(ROCRpred_Test, "tpr", "fpr")
-plot(ROCRperf_Test)
+plot(ROCRperf_Test, colorize = TRUE, print.cutoffs.at=seq(0,1,0.1), text.adj=c(-0.2,1.7))
+text(.9,0,paste("AUC",round(auc(college_draftTest$was_drafted, predict_Test),3)))
 ```
 
-## Recall
-```{r}
-ROCRperf_Test@x.values[[1]][1698]
-```
-
-## Precision
-```{r}
-ROCRperf_Test@y.values[[1]][1698]
-```
-
-# Logistic Regression 2
-# create training set
+# Logistic Regression Model 2
+#### create training set
 ```{r}
 college_draftTrain2 <- subset(college_draft, split == TRUE)
 nrow(college_draftTrain2)
 ```
 
-# Run the model on Train2
-# the subset has all colleges where at least one player was drafted
+##### Run the model on Train2
+The subset has all colleges where at least one player was drafted
 ```{r}
 college_draftTrain2 <- subset(college_draftTrain2, ave(college_draftTrain2$was_drafted, college_draftTrain2$team_name, FUN=sum) > 0)
 ```
 
-# Build the Logistic Regression Model
+#### Build the Logistic Regression Model
 ```{r}
 college_draftLog2 <- glm(was_drafted ~ Pos + GP + GS + season + team_name, family = binomial(), college_draftTrain2)
 summary(college_draftLog2)
 ```
 
-# Build prediction of college_draftLog2
+#### Build prediction of college_draftLog2
 ```{r}
 predict_college_draftTrain2 <- predict(college_draftLog2, newdata = college_draftTrain2, type = "response")
-summary(predict_college_draftTrain2)
+kable(as.matrix(summary(predict_college_draftTrain2))) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# Get the fn, fp, tn, tp
+
+### Confusion Matrix
+The below table gives us the total cases where players were predicted as True Negative, False Positive, False Negative, and True Positive. It shows the model predicted 11199 players as not being drafted correctly. There are 3353 players which the model said they would not be drafted but were drafted. The model shows 405 players which were predicted to be drafted but were not and 1642 players predicted to be drafted which were drafted. This model is biased more towards predicting palyers to not be drafted into the NFL.
+
 ```{r}
-table(college_draftTrain2$was_drafted, predict_college_draftTrain2 > mean(college_draftTrain2$was_drafted))
+train_fnfp2 <- table(college_draftTrain2$was_drafted, predict_college_draftTrain2 > mean(college_draftTrain2$was_drafted))
+kable(train_fnfp2) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-### Sensitivity
-Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+
+### Sensitivity, Specificity, Accuracy
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives. Sensitivity measures the percentage of the actual players who were drafted correctly. The sensitivity of the model was .802, meaning 80.2% of actual positives were correctly identified.
+Specificity is the correct number of predicted players not drafted by the total number of true negatives and false positives. Specificity measures the percentage of the actual players who were not drafted correctly. The specificity of the model measured 76.9% of the predictions correctly of players who were not drafted.
+The accuracy of the model was .769, meaning the proportion was .769 of the predictions were correct.
 ```{r}
-1642/2047
-```
-### Specificity
-```{r}
-11199/14552
+sens3 <- 1642/2047
+spec3 <- 11199/14552
+acc3 <- (11291 + 1651)/(11291 + 3456 + 412 + 1651)
+kable(data.frame(Sensitivity = sens3, Specificity = spec3, Accuracy = acc3)) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# average predicted probabilities
+### Average Predicted Probabilities
 ```{r}
-tapply(predict_college_draftTrain2, college_draftTrain2$was_drafted,  FUN=mean)
+kable(tapply(predict_college_draftTrain2, college_draftTrain2$was_drafted,  FUN=mean, na.rm = TRUE)) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# Accuracy
-```{r}
-(11291 + 1651)/(11291 + 3456 + 412 + 1651)
-```
 
-# create testing set
+#### create testing set
 ```{r}
 college_draftTest2 <- subset(college_draft, split == FALSE)
 nrow(college_draftTest2)
 ```
 
-# the subset has all colleges where at least one player was drafted in test
+The subset has all colleges where at least one player was drafted in test
 ```{r}
 college_draftTest2 <- subset(college_draftTest2, ave(college_draftTest2$was_drafted, college_draftTest2$team_name, FUN=sum) > 0)
 ```
 
-# Build test prediction of college_draftTestLog
+#### Build test prediction of college_draftTestLog
 ```{r}
 predict_cdTest2 <- predict(college_draftLog2, newdata = college_draftTest2, type = "response")
-summary(predict_cdTest2)
+kable(as.matrix(summary(predict_cdTest2))) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# To get the fn, fp, tn, tp
+### Confusion Matrix
+The below table gives us the total cases where players were predicted as True Negative, False Positive, False Negative, and True Positive. It shows the model predicted 3418 players as not being drafted correctly. There are 1120 players which the model said they would not be drafted but were drafted. The model shows 155 players which were predicted to be drafted but were not and 527 players predicted to be drafted which were drafted. This model is biased more towards predicting palyers to not be drafted into the NFL.
 ```{r}
-table(college_draftTest2$was_drafted, predict_cdTest2 > mean(college_draftTest2$was_drafted))
+test_fnfp2 <- table(college_draftTest2$was_drafted, predict_cdTest2 > mean(college_draftTest2$was_drafted))
+kable(test_fnfp2) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-### Sensitivity
-Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives.
+### Sensitivity, Specificity, and Accuracy
+Sensitivity is the correct number of predicted players drafted by by the total number of true positives and false negatives. Sensitivity measures the percentage of the actual players who were drafted correctly. The sensitivity of the model was .772, meaning 77.2% of actual positives were correctly identified.
+Specificity is the correct number of predicted players not drafted by the total number of true negatives and false positives. Specificity measures the percentage of the actual players who were not drafted correctly. The specificity of the model measured 75.3% of the predictions correctly of players who were not drafted.
+The accuracy of the model was .769, meaning the proportion was .769 of the predictions were correct.
 ```{r}
-527/682
-```
-### Specificity
-```{r}
-3418/4538
+sens4 <- 527/682
+spec4 <- 3418/4538
+acc4 <- (3811 + 558)/(3811 + 1181 + 130 + 558)
+kable(data.frame(Sensitivity = sens4, Specificity = spec4, Accuracy = acc4)) %>%
+  kable_styling(latex_options = "striped")
 ```
 
-# average predicted probabilities on Test
+
+### Average Predicted Probabilities on Test
 For all of the TRUE cases where the player was drafted there is a probability of 0.32 and all of the TRUE cases where the player didn't get drafted of 0.1. We can see we are predicting slightly higher the TRUE cases that are drafted.
 ```{r}
-tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean)
+tapply(predict_cdTest2, college_draftTest2$was_drafted, FUN=mean) %>% data.frame(was_drafted = .) %>% kable() %>% kable_styling(latex_options = "striped")
 ```
 
-# Accuracy
-```{r}
-(3811 + 558)/(3811 + 1181 + 130 + 558)
-```
 
-# ROC Curve
+### ROC Curve, AUC, and Recall and Precision
+In the ROC Curve plot below it shows the true positive rate and the false positive rate. Based on the results I would like to choose a threshold value from 0.4 to 0.2 as this threshold value range pulls the most towards the top left corner. A threshold value chosen in this range will provide the best tradeoff for the true positive and false positive rates.
+A random guess for area under the curve (AUC) is 0.5. So the model created needs to perform better than a random guess. Let's see if we can improve upon the first model which had an AUC of 0.797. The AUC for this model is 0.846 which is better than our previous model and a lot better than a random guess. 
+If the decision threshold were at .3 then the recall would be .5 and the precision would be 5/6. 
 ```{r}
-ROCRpred_Test2 <- prediction(predict_cdTest2, college_draftTest2$was_drafted)
+ROCRpred_Test2 <- ROCR::prediction(predict_cdTest2, college_draftTest2$was_drafted)
 ROCRperf_Test2 <- performance(ROCRpred_Test2, "tpr", "fpr")
-plot(ROCRperf_Test2)
+plot(ROCRperf_Test2, colorize = TRUE, print.cutoffs.at=seq(0,1,0.1), text.adj=c(-0.2,1.7))
+text(.9,0,paste("AUC",round(auc(college_draftTest2$was_drafted, predict_cdTest2),3)))
 ```
-## Recall
+
+
+### ROC plots stacked
+From the plots below we can see the second logistic regression ROC plot is far superior as the curve pulls to the top left even more. The AUC for the second plot is 0.847 compared to the first is 0.797, based on these models the second will be more accurate no matter what threshold you use.
 ```{r}
-ROCRperf_Test2@x.values[[1]][1613]
+plot(ROCRperf_Test, col = 4, lty = 1, main = "ROC")
+plot(ROCRperf_Test2, col = 2, lty = 2, add = TRUE)
+text(0.9,0,paste("AUC",round(auc(college_draftTest$was_drafted, predict_Test),3)))
+text(0.9,0.1,paste("AUC",round(auc(college_draftTest2$was_drafted, predict_cdTest2),3)))
 ```
 
-## Precision
+## Appendix
+Plot of nfl_model
 ```{r}
-ROCRperf_Test2@y.values[[1]][1613]
+plot(nfl_model)
 ```
 
-
-# Trying to stack ROC plots
+Plot of nfl_model2
 ```{r}
-plot(ROCRperf_Test, col = 552, lty = 1, main = "ROC")
-plot(ROCRperf_Test2, col = 24 , lty = 2, add = TRUE)
+plot(nfl_model2)
 ```
 
+Plot of nfl_model3
+```{r}
+plot(nfl_model3)
+```
