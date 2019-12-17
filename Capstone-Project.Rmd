@@ -330,7 +330,7 @@ According to SSE the best model was weight and college with an SSE of 198610.6. 
 
 # Linear Model for drafting
 
-For the first linear model to predict whether a player was drafted I used the dependent variable was_drafted and independent variables Year, Position, Games Played, and Games Started. From the table below we see the linear model draft1 Games played and Games Started are statistically significant. Games Started is more significant than Games Played. For Year variable Senior Year is statistically significant and Junior Year is almst statistically significant. The positions which are statistically significant are DL, K, RB, TE, and WR. Something to note is the prediction is based off of the DB position which may explain why DL is statistically significant and not a OL or QB.
+For the first linear model to predict whether a player was drafted I used the dependent variable was_drafted and independent variables Year, Position, Games Played, and Games Started. From the table below we see the linear model draft1 Games played and Games Started are statistically significant. Games Started is more significant than Games Played. For Year variable Senior Year is statistically significant and Junior Year is almost statistically significant. The positions which are statistically significant are DL, K, RB, TE, and WR. Something to note is the prediction is based off of the DB position which may explain why DL is statistically significant and not a OL or QB.
 ```{r}
 draft1 <- lm(was_drafted ~ Yr + Pos + GP + GS, data = college_draft)
 ```
@@ -358,8 +358,8 @@ The number of drafted players per position will come down to how many slots on t
 ```{r}
 ggplot(college_draft) + aes(x=Pos, fill = was_drafted) + geom_bar()
 ```
-
-
+### Summary of Linear Model for drafting
+According to RSE the better model was Yr + Pos + GP + GS with an RSE of 0.2487 on 38091 degrees of freedom. This model has an Adjusted R-squared of 0.06974 which is better than the model Yr + Pos + GP + Rush.Attempts + Rush.Net.Yards + Rush.YdsGained which has an Adjusted R-squared of 0.06529.
 
 # Logistic Regression
 Using logistic regression I will predict whether a player will be drafted into the NFL. The outcome of the prediction will be TRUE or FALSE, TRUE if the player is drafted into the NFL and FALSE if the player is not drafted. I will use a joined data set of the NFL and NCAA data sets to run the prediction on.
